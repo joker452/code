@@ -190,6 +190,7 @@ static void test_access_null() {
 static void test_access_boolean() {
 	lept_value v;
 	lept_init(&v);
+	lept_set_string(&v, "str_test_free", 13);
 	lept_set_boolean(&v, 1);
 	EXPECT_TRUE(lept_get_boolean(&v));
 	lept_set_boolean(&v, 0);
@@ -200,6 +201,7 @@ static void test_access_boolean() {
 static void test_access_number() {
     lept_value v;
     lept_init(&v);
+    lept_set_string(&v, "str_test_free", 13);
     lept_set_number(&v, 1.0000000000000002);
     EXPECT_EQ_DOUBLE(1.0000000000000002, lept_get_number(&v));
     EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(&v));

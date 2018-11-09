@@ -229,6 +229,7 @@ int lept_get_boolean(const lept_value* v) {
 
 void lept_set_boolean(lept_value* v, int b) {
     assert(v != NULL);
+    lept_free(v);
     v->type = b ? LEPT_TRUE: LEPT_FALSE;
 }
 
@@ -239,6 +240,7 @@ double lept_get_number(const lept_value* v) {
 
 void lept_set_number(lept_value* v, double n) {
     assert(v != NULL);
+    lept_free(v);
     v->u.n = n;
     v->type = LEPT_NUMBER;
 }
