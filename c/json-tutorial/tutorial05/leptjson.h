@@ -5,16 +5,15 @@
 
 typedef enum { LEPT_NULL, LEPT_FALSE, LEPT_TRUE, LEPT_NUMBER, LEPT_STRING, LEPT_ARRAY, LEPT_OBJECT } lept_type;
 
-typedef struct lept_value lept_value;
 
-struct lept_value {
+typedef struct lept_value {
     union {
-        struct { lept_value* e; size_t size; }a;    /* array:  elements, element count */
+        struct { struct lept_value* e; size_t size; }a;    /* array:  elements, element count */
         struct { char* s; size_t len; }s;           /* string: null-terminated string, string length */
         double n;                                   /* number */
     }u;
     lept_type type;
-};
+} lept_value;
 
 enum {
     LEPT_PARSE_OK = 0,
