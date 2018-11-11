@@ -244,9 +244,9 @@ static int lept_parse_string(lept_context* c, lept_value* v) {
 
 static int lept_parse_value(lept_context* c, lept_value* v) {
     switch (*c->json) {
-        case 't':  return lept_parse_literal(c, v, "true", LEPT_TRUE);
-        case 'f':  return lept_parse_literal(c, v, "false", LEPT_FALSE);
-        case 'n':  return lept_parse_literal(c, v, "null", LEPT_NULL);
+        case 't':  return lept_parse_literal(c, v);
+        case 'f':  return lept_parse_literal(c, v);
+        case 'n':  return lept_parse_literal(c, v);
         default:   return lept_parse_number(c, v);
         case '"':  return lept_parse_string(c, v);
         case '\0': return LEPT_PARSE_EXPECT_VALUE;
@@ -300,6 +300,13 @@ void lept_set_number(lept_value* v, double n) {
     lept_free(v);
     v->u.n = n;
     v->type = LEPT_NUMBER;
+}
+
+void lept_free(lept_value* v) {
+    assert(v != NULL);
+    if (v->type == LEPT_STRING)
+        free(v->u.s.s);
+    v->type = LEPT_NULL;
 }
 
 const char* lept_get_string(const lept_value* v) {
