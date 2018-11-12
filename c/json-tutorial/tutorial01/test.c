@@ -60,7 +60,6 @@ static void test_parse_invalid_value() {
     EXPECT_EQ_INT(LEPT_NULL, lept_get_type(&v));
 
     v.type = LEPT_FALSE;
-    EXPECT_EQ_INT(LEPT_PARSE_INVALID_VALUE, lept_parse(&v, "?"));
     EXPECT_EQ_INT(LEPT_NULL, lept_get_type(&v));
 }
 
