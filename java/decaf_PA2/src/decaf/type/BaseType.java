@@ -36,6 +36,9 @@ public class BaseType extends Type {
 		return equal(type);
 	}
 
+	/**
+	 *  reference equality
+	 */
 	@Override
 	public boolean equal(Type type) {
 		return this == type;

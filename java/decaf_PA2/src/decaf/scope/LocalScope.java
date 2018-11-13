@@ -37,6 +37,7 @@ public class LocalScope extends Scope {
 			pw.println(symbol);
 		}
 
+		// if nested local scopes exist, print them
 		for (Tree s : node.block) {
 			if (s instanceof Block) {
 				((Block) s).associatedScope.printTo(pw);

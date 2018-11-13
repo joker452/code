@@ -56,7 +56,12 @@ public class Class extends Symbol {
 		this.numVar = -1;
 		this.associatedScope = new ClassScope(this);
 	}
-
+	
+	/**
+	 * if no parent class, create a ClassType with symbol=this,
+	 * else bind parent class's type to this.type (parent class's
+	 * createType() may be called during this process)
+	 */
 	public void createType() {
 		Class p = getParent();
 		if (p == null) {
@@ -69,6 +74,9 @@ public class Class extends Symbol {
 		}
 	}
 
+	/**
+	 * if type not specified, call createType()
+	 */
 	@Override
 	public ClassType getType() {
 		if (type == null) {
@@ -99,6 +107,9 @@ public class Class extends Symbol {
 		return true;
 	}
 
+	/**
+	 * why getScope return GlobalScope?
+	 */
 	@Override
 	public GlobalScope getScope() {
 		return (GlobalScope) definedIn;

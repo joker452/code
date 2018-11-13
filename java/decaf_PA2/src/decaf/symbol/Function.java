@@ -53,6 +53,7 @@ public class Function extends Symbol {
 		ClassScope cs = (ClassScope) Driver.getDriver().getTable()
 				.lookForScope(Scope.Kind.CLASS);
 		this.statik = statik;
+		// add this to symbols, and add this's type to type
 		if (!statik) {
 			Variable _this = new Variable("this", cs.getOwner().getType(),
 					location);
