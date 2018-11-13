@@ -33,6 +33,7 @@ import java.util.*;
 %token LESS_EQUAL   GREATER_EQUAL  EQUAL   NOT_EQUAL
 %token '+'  '-'  '*'  '/'  '%'  '='  '>'  '<'  '.'
 %token ','  ';'  '!'  '('  ')'  '['  ']'  '{'  '}'
+%token SCOPY
 
 %left OR
 %left AND 
@@ -194,9 +195,16 @@ Stmt		    :	VariableDef
                 |	ReturnStmt ';'
                 |	PrintStmt ';'
                 |	BreakStmt ';'
+                |   OCStmt ';'
                 |	StmtBlock
                 ;
-
+                
+OCStmt			:	SCOPY '(' IDENTIFIER ',' Expr ')'
+					{
+						$$.stmt = new Tree.Scopy($5.expr, $3.ident, $1.loc);
+					}
+				;
+				
 SimpleStmt      :	LValue '=' Expr
 					{
 						$$.stmt = new Tree.Assign($1.lvalue, $3.expr, $2.loc);

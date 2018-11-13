@@ -7,6 +7,7 @@ import java.util.Stack;
 import decaf.Driver;
 import decaf.Location;
 import decaf.tree.Tree;
+import decaf.tree.Tree.Scopy;
 import decaf.error.BadArgCountError;
 import decaf.error.BadArgTypeError;
 import decaf.error.BadArrElementError;
@@ -15,6 +16,8 @@ import decaf.error.BadLengthError;
 import decaf.error.BadNewArrayLength;
 import decaf.error.BadPrintArgError;
 import decaf.error.BadReturnTypeError;
+import decaf.error.BadScopyArgError;
+import decaf.error.BadScopySrcError;
 import decaf.error.BadTestExpr;
 import decaf.error.BreakOutOfLoopError;
 import decaf.error.ClassNotFoundError;
@@ -287,7 +290,29 @@ public class TypeCheck extends Tree.Visitor {
 					.getOwner().getType();
 		}
 	}
-
+	
+	@Override
+	public void visitScopy(Scopy scopy) {
+		Symbol dst = table.lookup(scopy.id, true);
+		scopy.from.accept(this);
+		if (dst == null) {
+			issueError(new UndeclVarError(scopy.getLocation(), scopy.id));
+		}
+		else if (dst.getType().isClassType() == false) {
+			issueError(new BadScopyArgError(scopy.getLocation(), "dst", 
+					dst.getType().toString()));
+			if (!scopy.from.type.isClassType()) {
+				issueError(new BadScopyArgError(scopy.getLocation(), "src",
+						scopy.from.type.toString()));
+				}
+		}
+		else {
+			if (!dst.getType().compatible(scopy.from.type))
+				issueError(new BadScopySrcError(scopy.getLocation(), 
+						dst.getType().toString(), scopy.from.type.toString()));
+		}
+	}
+	
 	@Override
 	public void visitTypeTest(Tree.TypeTest instanceofExpr) {
 		instanceofExpr.instance.accept(this);

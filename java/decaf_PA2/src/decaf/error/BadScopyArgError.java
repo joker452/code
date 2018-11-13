@@ -9,19 +9,19 @@ import decaf.Location;
  */
 public class BadScopyArgError extends DecafError {
 
-	private String count;
+	private String id;
 
 	private String type;
 
-	public BadScopyArgError(Location location, String count, String type) {
+	public BadScopyArgError(Location location, String id, String type) {
 		super(location);
-		this.count = count;
+		this.id= id;
 		this.type = type;
 	}
 
 	@Override
 	protected String getErrMsg() {
-		return "incompatible argument " + count + ": " + type
+		return "incompatible argument " + id + ": " + type
 				+ " given, class expected";
 	}
 

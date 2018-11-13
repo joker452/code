@@ -54,7 +54,6 @@ public abstract class Scope {
 	}
 
 	/**
-	 * 
 	 * remove a symbol from the symbol table
 	 */
 	public void cancel(Symbol symbol) {
@@ -62,8 +61,7 @@ public abstract class Scope {
 	}
 
 	/**
-	 * 
-	 * return a iterator of the value, note changes will be seen
+	 * return a iterator of the value (symbol), note changes will be seen
 	 * it's an undefined behavior if the map is modified when iterating
 	 */
 	public Iterator<Symbol> iterator() {
