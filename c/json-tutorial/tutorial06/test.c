@@ -230,7 +230,6 @@ static void test_parse_object() {
     do {\
         lept_value v;\
         lept_init(&v);\
-        v.type = LEPT_FALSE;\
         EXPECT_EQ_INT(error, lept_parse(&v, json));\
         EXPECT_EQ_INT(LEPT_NULL, lept_get_type(&v));\
         lept_free(&v);\
@@ -352,7 +351,7 @@ static void test_parse() {
     test_parse_number();
     test_parse_string();
     test_parse_array();
-#if 0
+#if 1
     test_parse_object();
 #endif
 
@@ -366,7 +365,7 @@ static void test_parse() {
     test_parse_invalid_unicode_hex();
     test_parse_invalid_unicode_surrogate();
     test_parse_miss_comma_or_square_bracket();
-#if 0
+#if 1
     test_parse_miss_key();
     test_parse_miss_colon();
     test_parse_miss_comma_or_curly_bracket();
