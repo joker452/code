@@ -1,4 +1,0 @@
-/mnt/c/code/c/json-tutorial/tutorial06/cmake-build-debug/CMakeFiles/rebuild_cache.dir
-/mnt/c/code/c/json-tutorial/tutorial06/cmake-build-debug/CMakeFiles/edit_cache.dir
-/mnt/c/code/c/json-tutorial/tutorial06/cmake-build-debug/CMakeFiles/leptjson_test.dir
-/mnt/c/code/c/json-tutorial/tutorial06/cmake-build-debug/CMakeFiles/leptjson.dir
