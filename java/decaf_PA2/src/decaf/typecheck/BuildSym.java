@@ -7,6 +7,7 @@ import decaf.tree.Tree;
 import decaf.error.BadArrElementError;
 import decaf.error.BadInheritanceError;
 import decaf.error.BadOverrideError;
+import decaf.error.BadSealedInherError;
 import decaf.error.BadVarTypeError;
 import decaf.error.ClassNotFoundError;
 import decaf.error.DecafError;
@@ -45,6 +46,8 @@ public class BuildSym extends Tree.Visitor {
 	public void visitTopLevel(Tree.TopLevel program) {
 		program.globalScope = new GlobalScope();
 		table.open(program.globalScope);
+		// all the operations in this for loop is in GlobalScope
+		// this aim
 		for (Tree.ClassDef cd : program.classes) {
 			Class c = new Class(cd.name, cd.parent, cd.getLocation());
 			Class earlier = table.lookupClass(cd.name);
@@ -52,18 +55,34 @@ public class BuildSym extends Tree.Visitor {
 				issueError(new DeclConflictError(cd.getLocation(), cd.name,
 						earlier.getLocation()));
 			} else {
+				// put the class symbol in the GlobalScope
 				table.declare(c);
 			}
+			// put the class symbol in the ClassDef node
 			cd.symbol = c;
 		}
 
+		// check inheritance for parent class
 		for (Tree.ClassDef cd : program.classes) {
 			Class c = cd.symbol;
-			if (cd.parent != null && c.getParent() == null) {
-				issueError(new ClassNotFoundError(cd.getLocation(), cd.parent));
-				c.dettachParent();
-			}
-			
+			if (cd.parent != null) {
+				// parent class not declared
+				if (c.getParent() == null) {
+					issueError(new ClassNotFoundError(cd.getLocation(), cd.parent));
+					c.dettachParent();
+				}
+				else
+				{
+					// sealed parent class
+					for (Tree.ClassDef cls : program.classes)
+						if (cls.name.equals(cd.parent))
+							if (cls.isSealed == true) {
+								issueError(new BadSealedInherError(cd.getLocation()));
+								c.dettachParent();
+							}
+				}
+			}	
+			// cyclical inheritance
 			if (calcOrder(c) <= calcOrder(c.getParent())) {
 				issueError(new BadInheritanceError(cd.getLocation()));
 				c.dettachParent();
