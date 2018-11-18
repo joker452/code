@@ -1,19 +1,9 @@
-#include <string>
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <complex>
 #include <climits>
-#include <cmath>
 #include "fft.h"
-typedef struct
-{
-
-} KEY;
-
 
 class DTMF
 {
+	std::string filename;
 	std::vector<double> x;
 	unsigned N;
 
@@ -24,6 +14,7 @@ class DTMF
 
 	double Goertzel(unsigned int start, unsigned int k, unsigned int N)
 	{
+		// cosine factor
 		double w = cos(2 * M_PI * k / N);
 		double v[2];
 		v[0] = x[start + 1] + 2.0 * w * x[start + 0];
@@ -47,17 +38,19 @@ public:
 			error("Cannot open data file!");
 		else
 		{
+			this->filename = filename;
 			unsigned bytes, dots;
 			in.seekg(40);
 			in.read(reinterpret_cast<char *> (&bytes), sizeof(unsigned int));
 			dots = bytes / sizeof(short);
+			// padding according to the flag
 			N = (need_pad)? 1 << static_cast<unsigned> (ceil(log2(1.0 * dots))): dots;
-
 		    x.resize(N);
 			for (unsigned int i = 0; i < dots; ++i)
 			{
 				short data;
 				in.read(reinterpret_cast<char *> (&data), sizeof(short));
+				// normalize
 				x[i] = (1.0 * data - SHRT_MIN) / (SHRT_MAX - SHRT_MIN) - 0.5;
 			}
 		}
@@ -78,28 +71,38 @@ public:
 		    	max_index = i;
 		    }
 		}
-		std::cout << "The actual number of this file is " << key_name[max_index] << std::endl;
+		std::cout << filename << ": "
+						  << "The actual number of this file is "
+						  << key_name[max_index] << std::endl;
 	}
 
 	void detect()
 	{
+		std::cout << "Use Goertzel to detect "
+				  << filename << ":" << std::endl;
 		const unsigned int length = 1 << 9;
 		char *keys = new char[N / length]();
+		// Goertzel for each interval
 		for (unsigned int k = 0; k < N / length; ++k)
 		{
 			unsigned int max_index = 0;
 			double max = 0.0;
+			// try Goertzel for every frequency pair of a certain key
 			for (unsigned int i = 0; i < 16; ++i)
 			{
 				unsigned int f1 = key_freq[i].row_freq * length / SAMPLE_RATE;
 				unsigned int f2 = key_freq[i].col_freq * length / SAMPLE_RATE;
-				double amp = Goertzel(k * length, f1, length) + Goertzel(k * length, f2, length);
+				double amp = Goertzel(k * length, f1, length) +
+						     Goertzel(k * length, f2, length);
 				if (amp > max)
 				{
 					max = amp;
 					max_index = i;
 				}
 			}
+
+			// interval contains a key must have an amplitude big enough
+			// at certain frequecny pair corresponding to some key
 			if (max > 10.0)
 				keys[k] = key_name[max_index];
 		}
@@ -107,12 +110,15 @@ public:
 		bool begin = false;
 		for (unsigned i = 1; i < N / length; ++i)
 		{
+			// prior interval doesn't contain a key, and current does
 			if (begin == false && !keys[i - 1] && keys[i])
 				begin = true;
 
+			// interval does contain a key only when the key
+			// can be detected in the current interval and its next one
 			if (begin && keys[i] == keys[i + 1])
 			{
-				std::cout << keys[i] << " ";
+				std::cout << "Key detected:" << keys[i] << std::endl;
 			}
 			begin = false;
 		}
@@ -121,10 +127,26 @@ public:
 
 int main(int argc, char **argv)
 {
-	for (int i = 1; i < argc; ++i)
+	// question(1)
+	std::cout << "FFT:" << std::endl;
+	for (int i = 1; i < argc - 1; ++i)
 	{
-		std::string name = argv[i];
-		DTMF f(argv[i], false);
-		f.detect();
+		FFT f(argv[i]);
+		f.dit();
+		f.output();
 	}
+
+	// question(2)
+	std::cout << "Goertzel:" << std::endl;
+	for (int i = 1; i < argc - 1; ++i)
+	{
+		DTMF d(argv[i], true);
+		d.output();
+	}
+
+	// question(3)
+	DTMF d(argv[argc - 1], false);
+	d.detect();
+
+	return 0;
 }
