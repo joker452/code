@@ -89,6 +89,7 @@ public class BuildSym extends Tree.Visitor {
 			}
 		}
 
+		// create type for each class symbol
 		for (Tree.ClassDef cd : program.classes) {
 			cd.symbol.createType();
 		}
@@ -158,10 +159,12 @@ public class BuildSym extends Tree.Visitor {
 
 	@Override
 	public void visitMethodDef(Tree.MethodDef funcDef) {
+		// check returnType
 		funcDef.returnType.accept(this);
 		Function f = new Function(funcDef.statik, funcDef.name,
 				funcDef.returnType.type, funcDef.body, funcDef.getLocation());
 		funcDef.symbol = f;
+		// check function namesake in the same ClassScope
 		Symbol sym = table.lookup(funcDef.name, false);
 		if (sym != null) {
 			issueError(new DeclConflictError(funcDef.getLocation(),
@@ -169,19 +172,24 @@ public class BuildSym extends Tree.Visitor {
 		} else {
 			table.declare(f);
 		}
+		// open the FormalScope of this function
 		table.open(f.getAssociatedScope());
 		for (Tree.VarDef d : funcDef.formals) {
 			d.accept(this);
+			// add the argument's type to the argument type list
 			f.appendParam(d.symbol);
 		}
 
 		funcDef.body.associatedScope = new LocalScope(funcDef.body);
 		funcDef.body.associatedScope.setCombinedtoFormal(true);
+		// open the LocalScope of this function
 		table.open(funcDef.body.associatedScope);
 		for (Tree s : funcDef.body.block) {
 			s.accept(this);
 		}
+		// close the LocalScope
 		table.close();
+		// close the FormalScope
 		table.close();
 	}
 
@@ -263,7 +271,20 @@ public class BuildSym extends Tree.Visitor {
 			whileLoop.loopBody.accept(this);
 		}
 	}
-
+	
+	@Override
+	public void visitGuardStmt(Tree.GuardStmt guardStmt) {
+		if (guardStmt.guard != null)
+			for (Tree guard: guardStmt.guard) {
+				guard.accept(this);
+			}
+	}
+	
+	@Override
+	public void visitGuard(Tree.Guard guard) {
+		if (guard.stmt != null)
+			guard.stmt.accept(this);	
+	}
 	/**
 	 * subclass's order is parent class's order + 1
 	 * the upper most class has order 0

@@ -14,6 +14,8 @@ import decaf.scope.*;
 import decaf.symbol.*;
 import decaf.symbol.Class;
 import decaf.tree.Tree.Expr;
+import decaf.tree.Tree.Guard;
+import decaf.tree.Tree.GuardStmt;
 import decaf.tree.Tree.Visitor;
 import decaf.utils.IndentPrintWriter;
 import decaf.utils.MiscUtils;
@@ -136,6 +138,11 @@ public abstract class Tree {
     public static final int BREAK = EXEC + 1;
 
     /**
+     *  Guard statements, of type GuardStmt
+     */
+    public static final int GUARDSTMT = BREAK + 1;
+    
+    /**
      * Continue statements, of type Continue.
      */
     public static final int CONTINUE = BREAK + 1;
@@ -194,11 +201,16 @@ public abstract class Tree {
      * Scopy expressions, of type scopy
      */
     public static final int SCOPY = TYPETEST + 1;
+
+    /**
+     * Guard expressions, of type Guard
+     */
+    public static final int GUARD = SCOPY + 1;
     
     /**
      * Indexed array expressions, of type Indexed.
      */
-    public static final int INDEXED = SCOPY + 1;
+    public static final int INDEXED = GUARD + 1;
 
     /**
      * Selections, of type Select.
@@ -522,6 +534,7 @@ public abstract class Tree {
             super(WHILELOOP, loc);
             this.condition = condition;
             this.loopBody = loopBody;
+     
         }
 
     	@Override
@@ -738,6 +751,65 @@ public abstract class Tree {
     	}
     }
 
+    /** 
+     * GuardStmt
+     */
+    public static class GuardStmt extends Tree {
+	
+	public List<Tree> guard;
+	
+	public GuardStmt(List<Tree> guard, Location loc) {
+	    super(GUARDSTMT, loc);
+	    this.guard = guard;
+	}
+	
+	@Override 
+	public void accept(Visitor v) {
+	    v.visitGuardStmt(this);
+	}
+	
+	@Override
+	public void printTo(IndentPrintWriter pw) {
+	    pw.println("guarded");
+	    pw.incIndent();
+	    if (guard == null)
+		pw.println("<empty>");
+	    else
+		for (Tree t: guard)
+		    t.printTo(pw);
+	    pw.decIndent();
+	}
+    }
+    
+    /**
+     *  Guard
+     */
+    public static class Guard extends Tree {
+	
+	public Expr condition;
+	public Tree stmt;
+	
+	public Guard(Expr condition, Tree stmt, Location loc) {
+	    super(GUARD, loc);
+	    this.condition = condition;
+	    this.stmt = stmt;
+	}
+	
+	@Override
+	public void accept(Visitor v) {
+	    v.visitGuard(this);
+	}
+	
+	@Override
+	public void printTo(IndentPrintWriter pw) {
+	    pw.println("guard");
+	    pw.incIndent();
+	    condition.printTo(pw);
+	    stmt.printTo(pw);
+	    pw.decIndent();
+	}
+    }
+    
     /**
       * A method invocation
       */
@@ -1479,6 +1551,14 @@ public abstract class Tree {
         
         public void visitScopy(Scopy that) {
         	visitTree(that);
+        }
+        
+        public void visitGuard(Guard that) {
+            visitTree(that);
+        }
+        
+        public void visitGuardStmt(GuardStmt that) {
+            visitTree(that);
         }
         
         public void visitTypeTest(TypeTest that) {

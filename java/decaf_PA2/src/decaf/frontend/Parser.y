@@ -33,7 +33,7 @@ import java.util.*;
 %token LESS_EQUAL   GREATER_EQUAL  EQUAL   NOT_EQUAL
 %token '+'  '-'  '*'  '/'  '%'  '='  '>'  '<'  '.'
 %token ','  ';'  '!'  '('  ')'  '['  ']'  '{'  '}'
-%token SCOPY SEALED
+%token SCOPY SEALED SEP
 
 %left OR
 %left AND 
@@ -200,6 +200,7 @@ Stmt		    :	VariableDef
                 |	PrintStmt ';'
                 |	BreakStmt ';'
                 |   OCStmt ';'
+                |   GuardedStmt
                 |	StmtBlock
                 ;
                 
@@ -208,7 +209,35 @@ OCStmt			:	SCOPY '(' IDENTIFIER ',' Expr ')'
 						$$.stmt = new Tree.Scopy($5.expr, $3.ident, $1.loc);
 					}
 				;
-				
+
+GuardedStmt		:   IF '{' GuardList Guard '}'
+                    {
+                        $3.slist.add($4.stmt);
+                        $$.stmt = new Tree.GuardStmt($3.slist, $1.loc);
+                    }
+				|	IF '{' '}'
+				    {
+				        $$.stmt = new Tree.GuardStmt(null, $1.loc);
+				    }
+				;
+
+GuardList		:   GuardList Guard SEP
+                    {
+                       $$.slist.add($2.stmt);
+                    }
+				|   /* empty */
+				    {
+				    	$$ = new SemValue();
+				    	$$.slist = new ArrayList<Tree>();
+				    }
+				;
+				    
+Guard			:   Expr ':' Stmt
+					{
+						$$.stmt = new Tree.Guard($1.expr, $3.stmt, $1.loc);
+					}
+			    ;
+			    			
 SimpleStmt      :	LValue '=' Expr
 					{
 						$$.stmt = new Tree.Assign($1.lvalue, $3.expr, $2.loc);

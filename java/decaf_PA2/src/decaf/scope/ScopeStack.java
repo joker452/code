@@ -72,12 +72,10 @@ public class ScopeStack {
 		scopeStack.push(scope);
 	}
 
-	/**
-	 * why scopeStack.size()?
-	 */
 	public void close() {
 		Scope scope = scopeStack.pop();
 		if (scope.isClassScope()) {
+			// pop all the scopes except the GlobalScope
 			for (int n = scopeStack.size() - 1; n > 0; n--) {
 				scopeStack.pop();
 			}
