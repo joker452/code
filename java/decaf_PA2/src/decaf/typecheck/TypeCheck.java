@@ -351,41 +351,46 @@ public class TypeCheck extends Tree.Visitor {
 	@Override
 	public void visitIdent(Tree.Ident ident) {
 		if (ident.owner == null) {
-			Symbol v = table.lookupBeforeLocation(ident.name, ident
-					.getLocation());
-			if (v == null) {
-				issueError(new UndeclVarError(ident.getLocation(), ident.name));
-				ident.type = BaseType.ERROR;
-			} else if (v.isVariable()) {
-				Variable var = (Variable) v;
-				ident.type = var.getType();
-				ident.symbol = var;
-				if (var.isLocalVar()) {
-					ident.lvKind = Tree.LValue.Kind.LOCAL_VAR;
-				} else if (var.isParam()) {
-					ident.lvKind = Tree.LValue.Kind.PARAM_VAR;
+			if (ident.isVar == false) {
+				Symbol v = table.lookupBeforeLocation(ident.name, ident
+						.getLocation());
+				if (v == null) {
+					issueError(new UndeclVarError(ident.getLocation(), ident.name));
+					ident.type = BaseType.ERROR;
+				} else if (v.isVariable()) {
+					Variable var = (Variable) v;
+					ident.type = var.getType();
+					ident.symbol = var;
+					if (var.isLocalVar()) {
+						ident.lvKind = Tree.LValue.Kind.LOCAL_VAR;
+					} else if (var.isParam()) {
+						ident.lvKind = Tree.LValue.Kind.PARAM_VAR;
+					} else {
+						if (currentFunction.isStatik()) {
+							issueError(new RefNonStaticError(ident.getLocation(),
+									currentFunction.getName(), ident.name));
+						} else {
+							ident.owner = new Tree.ThisExpr(ident.getLocation());
+							ident.owner.accept(this);
+						}
+						ident.lvKind = Tree.LValue.Kind.MEMBER_VAR;
+					}
 				} else {
-					if (currentFunction.isStatik()) {
-						issueError(new RefNonStaticError(ident.getLocation(),
-								currentFunction.getName(), ident.name));
-					} else {
-						ident.owner = new Tree.ThisExpr(ident.getLocation());
-						ident.owner.accept(this);
+					ident.type = v.getType();
+					if (v.isClass()) {
+						if (ident.usedForRef) {
+							ident.isClass = true;
+						} else {
+							issueError(new UndeclVarError(ident.getLocation(),
+									ident.name));
+							ident.type = BaseType.ERROR;
+						}
+	
 					}
-					ident.lvKind = Tree.LValue.Kind.MEMBER_VAR;
 				}
-			} else {
-				ident.type = v.getType();
-				if (v.isClass()) {
-					if (ident.usedForRef) {
-						ident.isClass = true;
-					} else {
-						issueError(new UndeclVarError(ident.getLocation(),
-								ident.name));
-						ident.type = BaseType.ERROR;
-					}
-
-				}
+			}
+			else {
+				ident.lvKind = Tree.LValue.Kind.AUTO_VAR;
 			}
 		} else {
 			ident.owner.usedForRef = true;
@@ -480,6 +485,15 @@ public class TypeCheck extends Tree.Visitor {
 	public void visitAssign(Tree.Assign assign) {
 		assign.left.accept(this);
 		assign.expr.accept(this);
+		if (!assign.expr.type.equal(BaseType.ERROR) && 
+			 assign.left.lvKind == Tree.LValue.Kind.AUTO_VAR) {
+			assign.left.type = assign.expr.type;
+			Symbol sym = ((Tree.Ident) assign.left).symbol;
+			table.getCurrentScope().cancel(sym);
+			Variable v = new Variable(sym.getName(), assign.expr.type, sym.getLocation());
+			((Tree.Ident) assign.left).symbol = v;
+			table.declare(v);
+		}
 		if (!assign.left.type.equal(BaseType.ERROR)
 				&& (assign.left.type.isFuncType() || !assign.expr.type
 						.compatible(assign.left.type))) {

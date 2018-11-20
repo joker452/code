@@ -1,11 +1,14 @@
 class Main {
-  static void main() {
-	int a;
-  a = ReadInteger();
-  int b;
-  if {a>100 : b=a-100;|||
-    a<50 : b=a+50;|||
-    b:  {b=a+200;Print(a);}
-  };
-  }
+    static int foo() {
+		int a;
+		a=100;
+        return a;
+    }
+
+    static void main() {
+			int b;
+        var k = foo();
+				var c = var a + b;
+        Print(k);
+    }
 }
