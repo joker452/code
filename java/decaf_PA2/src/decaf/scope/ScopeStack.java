@@ -33,6 +33,7 @@ public class ScopeStack {
 		}
 	}
 
+
 	public Symbol lookupBeforeLocation(String name, Location loc) {
 		ListIterator<Scope> iter = scopeStack.listIterator(scopeStack.size());
 		while (iter.hasPrevious()) {

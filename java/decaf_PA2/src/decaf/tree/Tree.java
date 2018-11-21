@@ -16,6 +16,9 @@ import decaf.symbol.Class;
 import decaf.tree.Tree.Expr;
 import decaf.tree.Tree.Guard;
 import decaf.tree.Tree.GuardStmt;
+import decaf.tree.Tree.Ident;
+import decaf.tree.Tree.LValue;
+import decaf.tree.Tree.VarDef;
 import decaf.tree.Tree.Visitor;
 import decaf.utils.IndentPrintWriter;
 import decaf.utils.MiscUtils;
@@ -141,11 +144,16 @@ public abstract class Tree {
      *  Guard statements, of type GuardStmt
      */
     public static final int GUARDSTMT = BREAK + 1;
+
+    /** 
+     * Foreach statements, of type ForEach
+     */
+    public static final int FOREACH = GUARDSTMT + 1;
     
     /**
      * Continue statements, of type Continue.
      */
-    public static final int CONTINUE = BREAK + 1;
+    public static final int CONTINUE = FOREACH + 1;
 
     /**
      * Return statements, of type Return.
@@ -607,6 +615,54 @@ public abstract class Tree {
     	}
    }
 
+    /**
+     * A foreach statement
+     */
+     
+     public static class ForEach extends Tree {
+     	
+     	public VarDef varbound;
+     	public LValue autobound;
+     	public Expr range;
+     	public Expr condition;
+     	public Tree action;
+     	public Block block;
+     	
+     	public ForEach(VarDef varbound, LValue autobound, Expr range, Expr condition, Tree action, Location loc) {
+     		super(FOREACH, loc);
+     		this.varbound = varbound;
+     		this.autobound = autobound;
+     		this.range = range;
+     		this.condition = condition;
+     		this.action = action;
+     	}
+     	
+     	@Override
+     	public void accept(Visitor v) {
+     		v.visitForEach(this);
+     	}
+     	
+     	@Override
+     	public void printTo(IndentPrintWriter pw) {
+     		pw.println("foreach");
+     		pw.incIndent();
+     		if (autobound != null) {
+     			pw.print("varbind ");
+     			pw.println(((Ident) autobound).name + " var");
+     		}
+     		else {
+     			pw.print("varbind " + varbound.name + " ");
+     			varbound.type.printTo(pw);
+     			pw.println();
+     		}
+     		range.printTo(pw);
+     		condition.printTo(pw);
+     		action.printTo(pw);
+     		pw.decIndent();
+     	}
+     	
+     }
+     
     /**
       * An "if ( ) { } else { }" block
       */
@@ -1533,6 +1589,10 @@ public abstract class Tree {
             visitTree(that);
         }
 
+        public void visitForEach(ForEach that) {
+        	visitForEach(that);
+        }
+        
         public void visitIf(If that) {
             visitTree(that);
         }

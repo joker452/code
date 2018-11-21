@@ -5,6 +5,9 @@ import java.util.Iterator;
 import decaf.Driver;
 import decaf.tree.Tree;
 import decaf.tree.Tree.Assign;
+import decaf.tree.Tree.Block;
+import decaf.tree.Tree.ForEach;
+import decaf.tree.Tree.LValue.Kind;
 import decaf.error.BadArrElementError;
 import decaf.error.BadInheritanceError;
 import decaf.error.BadOverrideError;
@@ -296,7 +299,26 @@ public class BuildSym extends Tree.Visitor {
 			ifStmt.falseBranch.accept(this);
 		}
 	}
-
+	
+	@Override
+	public void visitForEach(Tree.ForEach foreach) {
+		
+		if (foreach.action instanceof Tree.Block)
+			foreach.block = (Tree.Block) foreach.action;
+		else
+			foreach.block = new Tree.Block(null, foreach.action.getLocation());
+		foreach.block.associatedScope = new LocalScope(foreach.block);
+		table.open(foreach.block.associatedScope);
+		if (foreach.autobound != null)
+			foreach.autobound.accept(this);
+		else 
+			foreach.varbound.accept(this);
+		if (foreach.block.block != null) 
+			for (Tree s: foreach.block.block)
+				s.accept(this);
+		table.close();
+	}
+	
 	@Override
 	public void visitWhileLoop(Tree.WhileLoop whileLoop) {
 		if (whileLoop.loopBody != null) {

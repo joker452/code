@@ -33,7 +33,7 @@ import java.util.*;
 %token LESS_EQUAL   GREATER_EQUAL  EQUAL   NOT_EQUAL
 %token '+'  '-'  '*'  '/'  '%'  '='  '>'  '<'  '.'
 %token ','  ';'  '!'  '('  ')'  '['  ']'  '{'  '}'
-%token SCOPY SEALED SEP VAR INIT DEFAULT
+%token SCOPY SEALED SEP VAR INIT DEFAULT FOREACH IN
 
 %left OR
 %left AND 
@@ -202,6 +202,7 @@ Stmt		    :	VariableDef
                 |	BreakStmt ';'
                 |   OCStmt ';'
                 |   GuardedStmt
+                |	ForeachStmt
                 |	StmtBlock
                 ;
                 
@@ -437,6 +438,26 @@ ForStmt         :	FOR '(' SimpleStmt ';' Expr ';'	SimpleStmt ')' Stmt
 						$$.stmt = new Tree.ForLoop($3.stmt, $5.expr, $7.stmt, $9.stmt, $1.loc);
 					}
                 ;
+
+ForeachStmt		:	FOREACH '(' BoundVariable IN Expr WHILE Expr')' Stmt
+					{
+						if ($3.vdef == null)
+							$$.stmt = new Tree.ForEach(null, $3.lvalue, $5.expr, $7.expr, $9.stmt, $1.loc);
+						else
+							$$.stmt = new Tree.ForEach($3.vdef, null, $5.expr, $7.expr, $9.stmt, $1.loc);
+					}
+				|	FOREACH	'(' BoundVariable IN Expr ')' Stmt
+					{
+						if ($3.vdef == null)
+							$$.stmt = new Tree.ForEach(null, $3.lvalue, $5.expr, new Tree.Literal(Tree.BOOL, true,$6.loc), $7.stmt, $1.loc);
+						else
+							$$.stmt = new Tree.ForEach($3.vdef, null, $5.expr, new Tree.Literal(Tree.BOOL, true, $6.loc), $7.stmt, $1.loc);
+					}
+				;
+					
+BoundVariable	:	Variable
+				|	AutoVariable
+				;
 
 BreakStmt       :	BREAK
 					{

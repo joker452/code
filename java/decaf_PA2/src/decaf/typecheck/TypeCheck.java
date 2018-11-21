@@ -1,5 +1,6 @@
 package decaf.typecheck;
 
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
@@ -7,6 +8,7 @@ import java.util.Stack;
 import decaf.Driver;
 import decaf.Location;
 import decaf.tree.Tree;
+import decaf.tree.Tree.ForEach;
 import decaf.tree.Tree.GuardStmt;
 import decaf.tree.Tree.Indexed;
 import decaf.tree.Tree.Scopy;
@@ -17,6 +19,7 @@ import decaf.error.BadArrIndexError;
 import decaf.error.BadArrOperArgError;
 import decaf.error.BadArrTimesError;
 import decaf.error.BadDefError;
+import decaf.error.BadForeachTypeError;
 import decaf.error.BadLengthArgError;
 import decaf.error.BadLengthError;
 import decaf.error.BadNewArrayLength;
@@ -43,6 +46,7 @@ import decaf.error.UndeclVarError;
 import decaf.frontend.Parser;
 import decaf.scope.ClassScope;
 import decaf.scope.FormalScope;
+import decaf.scope.LocalScope;
 import decaf.scope.Scope;
 import decaf.scope.ScopeStack;
 import decaf.scope.Scope.Kind;
@@ -285,6 +289,50 @@ public class TypeCheck extends Tree.Visitor {
 	@Override
 	public void visitExec(Tree.Exec exec){
 		exec.expr.accept(this);
+	}
+	
+	@Override
+	public void visitForEach(Tree.ForEach foreach) {
+		Tree.Block block = foreach.block;
+	
+		table.open(block.associatedScope);
+		foreach.range.accept(this);
+		checkTestExpr(foreach.condition);
+		if (foreach.autobound != null) {
+			if (!foreach.range.type.isArrayType()) {
+				if (!foreach.range.type.equal(BaseType.ERROR))
+					issueError(new BadArrOperArgError(foreach.range.getLocation()));
+				foreach.autobound.type = BaseType.ERROR;
+			}
+			else {		
+				foreach.autobound.type = ((ArrayType) foreach.range.type).getElementType();
+			}
+			Symbol sym = ((Tree.Ident) foreach.autobound).symbol;
+			table.getCurrentScope().cancel(sym);
+			Variable v = new Variable(sym.getName(), foreach.autobound.type, sym.getLocation());
+			((Tree.Ident) foreach.autobound).symbol = v;
+			table.declare(v);
+		
+		}
+		else {
+			if (!foreach.range.type.isArrayType()) {
+				if (!foreach.range.type.equal(BaseType.ERROR))
+				issueError(new BadArrOperArgError(foreach.range.getLocation()));
+			}
+			else {
+				Type type = ((ArrayType) foreach.range.type).getElementType();
+				if (!type.compatible(foreach.varbound.type.type))
+					issueError(new BadForeachTypeError(foreach.range.getLocation(), 
+							foreach.varbound.type.type.toString(), type.toString()));
+			}
+			
+		}
+		breaks.add(foreach);
+		if (block.block != null) 
+			for (Tree s: block.block)
+				s.accept(this);
+		breaks.pop();
+		table.close();
 	}
 	
 	@Override
