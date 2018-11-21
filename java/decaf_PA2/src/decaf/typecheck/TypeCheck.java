@@ -12,6 +12,7 @@ import decaf.tree.Tree.Scopy;
 import decaf.error.BadArgCountError;
 import decaf.error.BadArgTypeError;
 import decaf.error.BadArrElementError;
+import decaf.error.BadArrTimesError;
 import decaf.error.BadLengthArgError;
 import decaf.error.BadLengthError;
 import decaf.error.BadNewArrayLength;
@@ -641,6 +642,7 @@ public class TypeCheck extends Tree.Visitor {
 			case Tree.MINUS:
 			case Tree.MUL:
 			case Tree.DIV:
+			case Tree.INIT:
 				return left.type;
 			case Tree.MOD:
 				return BaseType.INT;
@@ -684,6 +686,17 @@ public class TypeCheck extends Tree.Visitor {
 			compatible = left.type.equal(BaseType.BOOL)
 					&& right.type.equal(BaseType.BOOL);
 			returnType = BaseType.BOOL;
+			break;
+		case Tree.INIT:
+			compatible = true;
+			if (left.type.equal(BaseType.VOID) || 
+				left.type.equal(BaseType.UNKNOWN)) 
+				issueError(new BadArrElementError(left.getLocation()));
+			else
+				returnType = new ArrayType(left.type);
+				
+			if (!right.type.equal(BaseType.INT))
+				issueError(new BadArrTimesError(right.getLocation()));
 			break;
 		default:
 			break;
