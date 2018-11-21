@@ -33,7 +33,7 @@ import java.util.*;
 %token LESS_EQUAL   GREATER_EQUAL  EQUAL   NOT_EQUAL
 %token '+'  '-'  '*'  '/'  '%'  '='  '>'  '<'  '.'
 %token ','  ';'  '!'  '('  ')'  '['  ']'  '{'  '}'
-%token SCOPY SEALED SEP VAR INIT
+%token SCOPY SEALED SEP VAR INIT DEFAULT
 
 %left OR
 %left AND 
@@ -43,7 +43,7 @@ import java.util.*;
 %left  '+' '-'
 %left  '*' '/' '%'  
 %nonassoc UMINUS '!' 
-%nonassoc '[' '.' 
+%nonassoc '[' '.' DEFAULT
 %nonassoc ')' EMPTY
 %nonassoc ELSE
 
@@ -334,6 +334,10 @@ Expr            :	LValue
                 |	Expr INIT Expr
                 	{
                 		$$.expr = new Tree.Binary(Tree.INIT, $1.expr, $3.expr, $2.loc);
+                	}
+                | 	Expr '[' Expr ']' DEFAULT Expr
+                	{
+                		$$.expr = new Tree.Default($1.expr, $3.expr, $6.expr, $1.loc);
                 	}
                 |	Expr LESS_EQUAL Expr
                 	{

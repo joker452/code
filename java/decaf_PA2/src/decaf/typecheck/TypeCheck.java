@@ -8,11 +8,15 @@ import decaf.Driver;
 import decaf.Location;
 import decaf.tree.Tree;
 import decaf.tree.Tree.GuardStmt;
+import decaf.tree.Tree.Indexed;
 import decaf.tree.Tree.Scopy;
 import decaf.error.BadArgCountError;
 import decaf.error.BadArgTypeError;
 import decaf.error.BadArrElementError;
+import decaf.error.BadArrIndexError;
+import decaf.error.BadArrOperArgError;
 import decaf.error.BadArrTimesError;
+import decaf.error.BadDefError;
 import decaf.error.BadLengthArgError;
 import decaf.error.BadLengthError;
 import decaf.error.BadNewArrayLength;
@@ -112,7 +116,7 @@ public class TypeCheck extends Tree.Visitor {
 	public void visitNull(Tree.Null nullExpr) {
 		nullExpr.type = BaseType.NULL;
 	}
-
+	
 	@Override
 	public void visitReadIntExpr(Tree.ReadIntExpr readIntExpr) {
 		readIntExpr.type = BaseType.INT;
@@ -139,7 +143,41 @@ public class TypeCheck extends Tree.Visitor {
 			issueError(new SubNotIntError(indexed.getLocation()));
 		}
 	}
+	
+	@Override
+	public void visitDefault(Tree.Default def) {
+		
+		def.type = BaseType.ERROR;
+		def.array.accept(this);
+		if (!def.array.type.isArrayType()) {
+			issueError(new BadArrOperArgError(def.array.getLocation()));
+			def.array.type = BaseType.ERROR;
+		}
+		else 
+			def.type = ((ArrayType) def.array.type).getElementType();
+			
 
+		def.index.accept(this);
+		if (!def.index.type.equal(BaseType.INT))
+			issueError(new BadArrIndexError(def.index.getLocation()));
+		
+		def.other.accept(this);
+		if (!def.type.equal(BaseType.ERROR)) {
+			if (!def.other.type.equal(BaseType.ERROR)) {
+				if (!def.type.equal(def.other.type))
+					issueError(new BadDefError(def.index.getLocation(), 
+							def.type.toString(), def.other.type.toString()));
+			}
+		}
+		else {
+			if (!def.other.type.equal(BaseType.ERROR)) {
+				if (!def.other.type.equal(BaseType.VOID) && 
+					!def.other.type.equal(BaseType.UNKNOWN)) 
+					def.type = def.other.type;
+			}
+		}
+	}
+	
 	private void checkCallExpr(Tree.CallExpr callExpr, Symbol f) {
 		Type receiverType = callExpr.receiver == null ? ((ClassScope) table
 				.lookForScope(Scope.Kind.CLASS)).getOwner().getType()
