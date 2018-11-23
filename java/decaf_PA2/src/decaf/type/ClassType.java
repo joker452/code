@@ -14,6 +14,10 @@ public class ClassType extends Type {
 		this.parent = parent;
 	}
 
+	/**
+	 * true when type is BaseType.ERROR
+	 * of type is a parent class of this
+	 */
 	@Override
 	public boolean compatible(Type type) {
 		if (type.equal(BaseType.ERROR)) {
@@ -31,6 +35,10 @@ public class ClassType extends Type {
 
 	}
 
+	/**
+	 * equal only when type is ClassType and type shares
+	 * the same Class reference with this.symbol
+	 */
 	@Override
 	public boolean equal(Type type) {
 		return type.isClassType() && symbol == ((ClassType) type).symbol;

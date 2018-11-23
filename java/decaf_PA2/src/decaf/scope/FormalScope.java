@@ -37,6 +37,8 @@ public class FormalScope extends Scope {
 		for (Symbol symbol : symbols.values()) {
 			pw.println(symbol);
 		}
+		
+		// print local scope
 		astNode.associatedScope.printTo(pw);
 		pw.decIndent();
 	}

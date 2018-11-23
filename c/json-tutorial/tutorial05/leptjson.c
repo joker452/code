@@ -89,11 +89,11 @@ static int lept_parse_literal(lept_context* c, lept_value* v) {
 static int lept_parse_number(lept_context* c, lept_value* v) {
     const char* p = c->json;
 
-    // optional '-'
+    /* optional '-' */
     if (p[0] == '-')
     	++p;
 
-    // int part
+    /* int part */
     if (p[0] == '0')
     	++p;
     else if (ISDIGIT1TO9(p[0]))
@@ -104,7 +104,7 @@ static int lept_parse_number(lept_context* c, lept_value* v) {
     else
     	return LEPT_PARSE_INVALID_VALUE;
 
-    // frac part
+    /* frac part */
    if (p[0] == '.')
     {
     	if (!ISDIGIT(p[1]))
@@ -114,12 +114,12 @@ static int lept_parse_number(lept_context* c, lept_value* v) {
     		++p;
     }
 
-    // exp part
+    /* exp part */
    if (p[0] == 'E' || p[0] == 'e')
     {
     	++p;
 
-    	// optional '-' or '+'
+    	/* optional '-' or '+' */
     	if (p[0] == '-' || p[0] == '+')
     		++p;
 
@@ -141,9 +141,10 @@ static int lept_parse_number(lept_context* c, lept_value* v) {
 }
 
 static const char* lept_parse_hex4(const char* p, unsigned* u) {
+	int i;
 	*u = 0;
 
-    for (int i = 0; i < 4; ++i)
+    for (i = 0; i < 4; ++i)
     {
     	char ch = p[i];
     	int digit = (ch < 58) ? ch - '0': (ch < 71)? ch - 'A' + 10: ch - 'a' + 10;
@@ -159,7 +160,6 @@ static const char* lept_parse_hex4(const char* p, unsigned* u) {
     p += 4;
     return p;
 }
-
 static void lept_encode_utf8(lept_context* c, unsigned u) {
     assert(0x0 <= u && u <= 0x10ffff);
 
@@ -245,7 +245,7 @@ static int lept_parse_string(lept_context* c, lept_value* v) {
 static int lept_parse_value(lept_context* c, lept_value* v);
 
 static int lept_parse_array(lept_context* c, lept_value* v) {
-    size_t size = 0, head = c->top;
+    size_t size = 0, i;
     int ret;
     EXPECT(c, '[');
     lept_parse_whitespace(c);
@@ -282,9 +282,9 @@ static int lept_parse_array(lept_context* c, lept_value* v) {
         }
     }
 
-    for (size_t i = 0; i < size; i++)
+    for (i = 0; i < size; i++)
     	lept_free((lept_value*)lept_context_pop(c, sizeof(lept_value)));
-        return ret;
+    return ret;
 }
 
 static int lept_parse_value(lept_context* c, lept_value* v) {

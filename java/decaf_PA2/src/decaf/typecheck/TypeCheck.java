@@ -1,5 +1,6 @@
 package decaf.typecheck;
 
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
@@ -7,14 +8,25 @@ import java.util.Stack;
 import decaf.Driver;
 import decaf.Location;
 import decaf.tree.Tree;
+import decaf.tree.Tree.ForEach;
+import decaf.tree.Tree.GuardStmt;
+import decaf.tree.Tree.Indexed;
+import decaf.tree.Tree.Scopy;
 import decaf.error.BadArgCountError;
 import decaf.error.BadArgTypeError;
 import decaf.error.BadArrElementError;
+import decaf.error.BadArrIndexError;
+import decaf.error.BadArrOperArgError;
+import decaf.error.BadArrTimesError;
+import decaf.error.BadDefError;
+import decaf.error.BadForeachTypeError;
 import decaf.error.BadLengthArgError;
 import decaf.error.BadLengthError;
 import decaf.error.BadNewArrayLength;
 import decaf.error.BadPrintArgError;
 import decaf.error.BadReturnTypeError;
+import decaf.error.BadScopyArgError;
+import decaf.error.BadScopySrcError;
 import decaf.error.BadTestExpr;
 import decaf.error.BreakOutOfLoopError;
 import decaf.error.ClassNotFoundError;
@@ -34,6 +46,7 @@ import decaf.error.UndeclVarError;
 import decaf.frontend.Parser;
 import decaf.scope.ClassScope;
 import decaf.scope.FormalScope;
+import decaf.scope.LocalScope;
 import decaf.scope.Scope;
 import decaf.scope.ScopeStack;
 import decaf.scope.Scope.Kind;
@@ -107,7 +120,7 @@ public class TypeCheck extends Tree.Visitor {
 	public void visitNull(Tree.Null nullExpr) {
 		nullExpr.type = BaseType.NULL;
 	}
-
+	
 	@Override
 	public void visitReadIntExpr(Tree.ReadIntExpr readIntExpr) {
 		readIntExpr.type = BaseType.INT;
@@ -134,7 +147,41 @@ public class TypeCheck extends Tree.Visitor {
 			issueError(new SubNotIntError(indexed.getLocation()));
 		}
 	}
+	
+	@Override
+	public void visitDefault(Tree.Default def) {
+		
+		def.type = BaseType.ERROR;
+		def.array.accept(this);
+		if (!def.array.type.isArrayType()) {
+			issueError(new BadArrOperArgError(def.array.getLocation()));
+			def.array.type = BaseType.ERROR;
+		}
+		else 
+			def.type = ((ArrayType) def.array.type).getElementType();
+			
 
+		def.index.accept(this);
+		if (!def.index.type.equal(BaseType.INT))
+			issueError(new BadArrIndexError(def.index.getLocation()));
+		
+		def.other.accept(this);
+		if (!def.type.equal(BaseType.ERROR)) {
+			if (!def.other.type.equal(BaseType.ERROR)) {
+				if (!def.type.equal(def.other.type))
+					issueError(new BadDefError(def.index.getLocation(), 
+							def.type.toString(), def.other.type.toString()));
+			}
+		}
+		else {
+			if (!def.other.type.equal(BaseType.ERROR)) {
+				if (!def.other.type.equal(BaseType.VOID) && 
+					!def.other.type.equal(BaseType.UNKNOWN)) 
+					def.type = def.other.type;
+			}
+		}
+	}
+	
 	private void checkCallExpr(Tree.CallExpr callExpr, Symbol f) {
 		Type receiverType = callExpr.receiver == null ? ((ClassScope) table
 				.lookForScope(Scope.Kind.CLASS)).getOwner().getType()
@@ -245,6 +292,50 @@ public class TypeCheck extends Tree.Visitor {
 	}
 	
 	@Override
+	public void visitForEach(Tree.ForEach foreach) {
+		Tree.Block block = foreach.block;
+	
+		table.open(block.associatedScope);
+		foreach.range.accept(this);
+		checkTestExpr(foreach.condition);
+		if (foreach.autobound != null) {
+			if (!foreach.range.type.isArrayType()) {
+				if (!foreach.range.type.equal(BaseType.ERROR))
+					issueError(new BadArrOperArgError(foreach.range.getLocation()));
+				foreach.autobound.type = BaseType.ERROR;
+			}
+			else {		
+				foreach.autobound.type = ((ArrayType) foreach.range.type).getElementType();
+			}
+			Symbol sym = ((Tree.Ident) foreach.autobound).symbol;
+			table.getCurrentScope().cancel(sym);
+			Variable v = new Variable(sym.getName(), foreach.autobound.type, sym.getLocation());
+			((Tree.Ident) foreach.autobound).symbol = v;
+			table.declare(v);
+		
+		}
+		else {
+			if (!foreach.range.type.isArrayType()) {
+				if (!foreach.range.type.equal(BaseType.ERROR))
+				issueError(new BadArrOperArgError(foreach.range.getLocation()));
+			}
+			else {
+				Type type = ((ArrayType) foreach.range.type).getElementType();
+				if (!type.compatible(foreach.varbound.type.type))
+					issueError(new BadForeachTypeError(foreach.range.getLocation(), 
+							foreach.varbound.type.type.toString(), type.toString()));
+			}
+			
+		}
+		breaks.add(foreach);
+		if (block.block != null) 
+			for (Tree s: block.block)
+				s.accept(this);
+		breaks.pop();
+		table.close();
+	}
+	
+	@Override
 	public void visitNewArray(Tree.NewArray newArrayExpr) {
 		newArrayExpr.elementType.accept(this);
 		if (newArrayExpr.elementType.type.equal(BaseType.ERROR)) {
@@ -287,7 +378,29 @@ public class TypeCheck extends Tree.Visitor {
 					.getOwner().getType();
 		}
 	}
-
+	
+	@Override
+	public void visitScopy(Scopy scopy) {
+		Symbol dst = table.lookup(scopy.id, true);
+		scopy.from.accept(this);
+		if (dst == null) {
+			issueError(new UndeclVarError(scopy.getLocation(), scopy.id));
+		}
+		else if (dst.getType().isClassType() == false) {
+			issueError(new BadScopyArgError(scopy.getLocation(), "dst", 
+					dst.getType().toString()));
+			if (!scopy.from.type.isClassType()) {
+				issueError(new BadScopyArgError(scopy.getLocation(), "src",
+						scopy.from.type.toString()));
+				}
+		}
+		else {
+			if (!dst.getType().compatible(scopy.from.type))
+				issueError(new BadScopySrcError(scopy.getLocation(), 
+						dst.getType().toString(), scopy.from.type.toString()));
+		}
+	}
+	
 	@Override
 	public void visitTypeTest(Tree.TypeTest instanceofExpr) {
 		instanceofExpr.instance.accept(this);
@@ -325,41 +438,46 @@ public class TypeCheck extends Tree.Visitor {
 	@Override
 	public void visitIdent(Tree.Ident ident) {
 		if (ident.owner == null) {
-			Symbol v = table.lookupBeforeLocation(ident.name, ident
-					.getLocation());
-			if (v == null) {
-				issueError(new UndeclVarError(ident.getLocation(), ident.name));
-				ident.type = BaseType.ERROR;
-			} else if (v.isVariable()) {
-				Variable var = (Variable) v;
-				ident.type = var.getType();
-				ident.symbol = var;
-				if (var.isLocalVar()) {
-					ident.lvKind = Tree.LValue.Kind.LOCAL_VAR;
-				} else if (var.isParam()) {
-					ident.lvKind = Tree.LValue.Kind.PARAM_VAR;
+			if (ident.isVar == false) {
+				Symbol v = table.lookupBeforeLocation(ident.name, ident
+						.getLocation());
+				if (v == null) {
+					issueError(new UndeclVarError(ident.getLocation(), ident.name));
+					ident.type = BaseType.ERROR;
+				} else if (v.isVariable()) {
+					Variable var = (Variable) v;
+					ident.type = var.getType();
+					ident.symbol = var;
+					if (var.isLocalVar()) {
+						ident.lvKind = Tree.LValue.Kind.LOCAL_VAR;
+					} else if (var.isParam()) {
+						ident.lvKind = Tree.LValue.Kind.PARAM_VAR;
+					} else {
+						if (currentFunction.isStatik()) {
+							issueError(new RefNonStaticError(ident.getLocation(),
+									currentFunction.getName(), ident.name));
+						} else {
+							ident.owner = new Tree.ThisExpr(ident.getLocation());
+							ident.owner.accept(this);
+						}
+						ident.lvKind = Tree.LValue.Kind.MEMBER_VAR;
+					}
 				} else {
-					if (currentFunction.isStatik()) {
-						issueError(new RefNonStaticError(ident.getLocation(),
-								currentFunction.getName(), ident.name));
-					} else {
-						ident.owner = new Tree.ThisExpr(ident.getLocation());
-						ident.owner.accept(this);
+					ident.type = v.getType();
+					if (v.isClass()) {
+						if (ident.usedForRef) {
+							ident.isClass = true;
+						} else {
+							issueError(new UndeclVarError(ident.getLocation(),
+									ident.name));
+							ident.type = BaseType.ERROR;
+						}
+	
 					}
-					ident.lvKind = Tree.LValue.Kind.MEMBER_VAR;
 				}
-			} else {
-				ident.type = v.getType();
-				if (v.isClass()) {
-					if (ident.usedForRef) {
-						ident.isClass = true;
-					} else {
-						issueError(new UndeclVarError(ident.getLocation(),
-								ident.name));
-						ident.type = BaseType.ERROR;
-					}
-
-				}
+			}
+			else {
+				ident.lvKind = Tree.LValue.Kind.AUTO_VAR;
 			}
 		} else {
 			ident.owner.usedForRef = true;
@@ -428,6 +546,7 @@ public class TypeCheck extends Tree.Visitor {
 
 	@Override
 	public void visitBlock(Tree.Block block) {
+		// open LocalScope of the block
 		table.open(block.associatedScope);
 		for (Tree s : block.block) {
 			s.accept(this);
@@ -436,9 +555,32 @@ public class TypeCheck extends Tree.Visitor {
 	}
 
 	@Override
+	public void visitGuardStmt(Tree.GuardStmt guardStmt) {
+		if (guardStmt.guard != null)
+			for (Tree guard: guardStmt.guard) {
+				guard.accept(this);
+			}
+	}
+	
+	@Override
+	public void visitGuard(Tree.Guard guard) {
+		checkTestExpr(guard.condition);
+		guard.stmt.accept(this);	
+	}
+	
+	@Override
 	public void visitAssign(Tree.Assign assign) {
 		assign.left.accept(this);
 		assign.expr.accept(this);
+		if (!assign.expr.type.equal(BaseType.ERROR) && 
+			 assign.left.lvKind == Tree.LValue.Kind.AUTO_VAR) {
+			assign.left.type = assign.expr.type;
+			Symbol sym = ((Tree.Ident) assign.left).symbol;
+			table.getCurrentScope().cancel(sym);
+			Variable v = new Variable(sym.getName(), assign.expr.type, sym.getLocation());
+			((Tree.Ident) assign.left).symbol = v;
+			table.declare(v);
+		}
 		if (!assign.left.type.equal(BaseType.ERROR)
 				&& (assign.left.type.isFuncType() || !assign.expr.type
 						.compatible(assign.left.type))) {
@@ -586,6 +728,7 @@ public class TypeCheck extends Tree.Visitor {
 			case Tree.MINUS:
 			case Tree.MUL:
 			case Tree.DIV:
+			case Tree.INIT:
 				return left.type;
 			case Tree.MOD:
 				return BaseType.INT;
@@ -629,6 +772,17 @@ public class TypeCheck extends Tree.Visitor {
 			compatible = left.type.equal(BaseType.BOOL)
 					&& right.type.equal(BaseType.BOOL);
 			returnType = BaseType.BOOL;
+			break;
+		case Tree.INIT:
+			compatible = true;
+			if (left.type.equal(BaseType.VOID) || 
+				left.type.equal(BaseType.UNKNOWN)) 
+				issueError(new BadArrElementError(left.getLocation()));
+			else
+				returnType = new ArrayType(left.type);
+				
+			if (!right.type.equal(BaseType.INT))
+				issueError(new BadArrTimesError(right.getLocation()));
 			break;
 		default:
 			break;

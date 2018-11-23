@@ -34,7 +34,10 @@ public class ClassScope extends Scope {
 	public Class getOwner() {
 		return owner;
 	}
-
+	
+	/**
+	 * print symbols in this ClassScope according to their location 
+	 */
 	@Override
 	public void printTo(IndentPrintWriter pw) {
 		TreeSet<Symbol> ss = new TreeSet<Symbol>(Symbol.LOCATION_COMPARATOR);
@@ -54,6 +57,10 @@ public class ClassScope extends Scope {
 		pw.decIndent();
 	}
 
+	/**
+	 * return true when symbol's scope is a ClassScope and is 
+	 * one of the parentScope of this
+	 */
 	public boolean isInherited(Symbol symbol) {
 		Scope scope = symbol.getScope();
 		if (scope == null || scope == this || !scope.isClassScope()) {
@@ -67,6 +74,10 @@ public class ClassScope extends Scope {
 		return false;
 	}
 
+	/**
+	 * look for a symbol according to its name in this scope and 
+	 * this class's parent classes' associated scope
+	 */
 	public Symbol lookupVisible(String name) {
 		for (ClassScope cs = this; cs != null; cs = cs.getParentScope()) {
 			Symbol symbol = cs.lookup(name);

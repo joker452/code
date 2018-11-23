@@ -1,0 +1,6 @@
+*.log
+*.xml
+*.idea
+*.o
+*.exe
+*.a

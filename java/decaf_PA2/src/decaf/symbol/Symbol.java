@@ -19,6 +19,9 @@ public abstract class Symbol {
 
 	public static final Comparator<Symbol> LOCATION_COMPARATOR = new Comparator<Symbol>() {
 
+		/*
+		 * if o1 appears later than o2, return 1
+		 */
 		@Override
 		public int compare(Symbol o1, Symbol o2) {
 			return o1.location.compareTo(o2.location);
@@ -28,6 +31,9 @@ public abstract class Symbol {
 
 	public static final Comparator<Symbol> ORDER_COMPARATOR = new Comparator<Symbol>() {
 
+		/**
+		 * if o1.order > o2.order, return 1
+		 */
 		@Override
 		public int compare(Symbol o1, Symbol o2) {
 			return o1.order > o2.order ? 1 : o1.order == o2.order ? 0 : -1;

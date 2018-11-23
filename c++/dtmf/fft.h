@@ -1,3 +1,5 @@
+#ifndef FFT_H
+#define FFT_H
 #include <iostream>
 #include <fstream>
 #include <complex>
@@ -5,27 +7,12 @@
 #include <string>
 #include <cmath>
 #include <climits>
-#include <winbase.h>
-
-#define SAMPLE_RATE 8000
-typedef struct
-{
-	unsigned int row_freq;
-	unsigned int col_freq;
-} freq_pair;
-
-static char key_name[] = { '1', '2', '3', 'A', '4', '5', '6', 'B','7', '8',
-	         			   '9', 'C', '*', '0', '#', 'D' };
-
-static freq_pair key_freq[] = { {697, 1209}, {697, 1336}, {697, 1477}, {697, 1633},
-						        {770, 1209}, {770, 1336}, {770, 1477}, {770, 1633},
-								{852, 1209}, {852, 1336}, {852, 1477}, {852, 1633},
-                                {941, 1209}, {941, 1336}, {941, 1477}, {941, 1633} };
-
+#include "key.h"
 
 class FFT
 {
 	unsigned int N;
+	std::string filename;
 	std::vector<std::complex<double>> x;
 
 	// dit input and dif output order
@@ -83,16 +70,18 @@ class FFT
 public:
 
 	FFT(std::string filename)
-	{
+    {
 		std::ifstream in(filename, std::ios::binary);
 		if (!in.is_open())
 			error("Cannot open data file!");
 		else
 		{
+	        this->filename = filename;
 			unsigned bytes, dots;
 			in.seekg(40);
 			in.read(reinterpret_cast<char *> (&bytes), sizeof(unsigned int));
 			dots = bytes / sizeof(short);
+			// padding
 			N = 1 << static_cast<unsigned> (ceil(log2(1.0 * dots)));
 			if (N == 0 || (N & (N - 1)))
 				error("N is not a power of two!");
@@ -103,6 +92,7 @@ public:
 				unsigned int t = getReverse(i);
 				short data;
 				in.read(reinterpret_cast<char *> (&data), sizeof(short));
+				// normalize
 				x[t] = (1.0 * data - SHRT_MIN) / (SHRT_MAX - SHRT_MIN) - 0.5;
 			}
 		}
@@ -132,6 +122,7 @@ public:
 		{
 			unsigned int f1 = key_freq[i].row_freq * N / SAMPLE_RATE;
 			unsigned int f2 = key_freq[i].col_freq * N / SAMPLE_RATE;
+			// calculate amplitude
 		    double amp = abs(x[f1]) + abs(x[f2]);
 		    if (amp > max)
 		    {
@@ -139,15 +130,13 @@ public:
 		    	max_index = i;
 		    }
 		}
-		std::cout << "The actual number of this file is " << key_name[max_index] << std::endl;
+		std::cout << filename << ": "
+				  << "The actual number of this file is "
+				  << key_name[max_index] << std::endl;
 	}
 
-	unsigned int getN()
-	{
-		return N;
-	}
 };
-
+#endif
 
 
 

@@ -33,15 +33,17 @@ import java.util.*;
 %token LESS_EQUAL   GREATER_EQUAL  EQUAL   NOT_EQUAL
 %token '+'  '-'  '*'  '/'  '%'  '='  '>'  '<'  '.'
 %token ','  ';'  '!'  '('  ')'  '['  ']'  '{'  '}'
+%token SCOPY SEALED SEP VAR INIT DEFAULT FOREACH IN
 
 %left OR
 %left AND 
 %nonassoc EQUAL NOT_EQUAL
+%left INIT
 %nonassoc LESS_EQUAL GREATER_EQUAL '<' '>'
 %left  '+' '-'
 %left  '*' '/' '%'  
 %nonassoc UMINUS '!' 
-%nonassoc '[' '.' 
+%nonassoc '[' '.' DEFAULT
 %nonassoc ')' EMPTY
 %nonassoc ELSE
 
@@ -100,9 +102,13 @@ Type            :	INT
                 	}
                 ;
 
-ClassDef        :	CLASS IDENTIFIER ExtendsClause '{' FieldList '}'
+ClassDef        :	SEALED CLASS IDENTIFIER ExtendsClause '{' FieldList '}'
 					{
-						$$.cdef = new Tree.ClassDef($2.ident, $3.ident, $5.flist, $1.loc);
+						$$.cdef = new Tree.ClassDef(true, $3.ident, $4.ident, $6.flist, $2.loc);
+					}
+			    |   CLASS IDENTIFIER ExtendsClause '{' FieldList '}'
+					{
+						$$.cdef = new Tree.ClassDef(false, $2.ident, $3.ident, $5.flist, $1.loc);
 					}
                 ;
 
@@ -194,9 +200,46 @@ Stmt		    :	VariableDef
                 |	ReturnStmt ';'
                 |	PrintStmt ';'
                 |	BreakStmt ';'
+                |   OCStmt ';'
+                |   GuardedStmt
+                |	ForeachStmt
                 |	StmtBlock
                 ;
+                
+OCStmt			:	SCOPY '(' IDENTIFIER ',' Expr ')'
+					{
+						$$.stmt = new Tree.Scopy($5.expr, $3.ident, $1.loc);
+					}
+				;
 
+GuardedStmt		:   IF '{' GuardList Guard '}'
+                    {
+                        $3.slist.add($4.stmt);
+                        $$.stmt = new Tree.GuardStmt($3.slist, $1.loc);
+                    }
+				|	IF '{' '}'
+				    {
+				        $$.stmt = new Tree.GuardStmt(null, $1.loc);
+				    }
+				;
+
+GuardList		:   GuardList Guard SEP
+                    {
+                       $$.slist.add($2.stmt);
+                    }
+				|   /* empty */
+				    {
+				    	$$ = new SemValue();
+				    	$$.slist = new ArrayList<Tree>();
+				    }
+				;
+				    
+Guard			:   Expr ':' Stmt
+					{
+						$$.stmt = new Tree.Guard($1.expr, $3.stmt, $1.loc);
+					}
+			    ;
+			    			
 SimpleStmt      :	LValue '=' Expr
 					{
 						$$.stmt = new Tree.Assign($1.lvalue, $3.expr, $2.loc);
@@ -220,7 +263,7 @@ Receiver     	:	Expr '.'
 
 LValue          :	Receiver IDENTIFIER
 					{
-						$$.lvalue = new Tree.Ident($1.expr, $2.ident, $2.loc);
+						$$.lvalue = new Tree.Ident(false, $1.expr, $2.ident, $2.loc);
 						if ($1.loc == null) {
 							$$.loc = $2.loc;
 						}
@@ -229,6 +272,13 @@ LValue          :	Receiver IDENTIFIER
                 	{
                 		$$.lvalue = new Tree.Indexed($1.expr, $3.expr, $1.loc);
                 	}
+                |   AutoVariable
+                ;
+
+AutoVariable	:	VAR IDENTIFIER
+                    {
+                    	$$.lvalue = new Tree.Ident(true, null, $2.ident, $2.loc);
+                    }
                 ;
 
 Call            :	Receiver IDENTIFIER '(' Actuals ')'
@@ -281,6 +331,14 @@ Expr            :	LValue
                 |	Expr '>' Expr
                 	{
                 		$$.expr = new Tree.Binary(Tree.GT, $1.expr, $3.expr, $2.loc);
+                	}
+                |	Expr INIT Expr
+                	{
+                		$$.expr = new Tree.Binary(Tree.INIT, $1.expr, $3.expr, $2.loc);
+                	}
+                | 	Expr '[' Expr ']' DEFAULT Expr
+                	{
+                		$$.expr = new Tree.Default($1.expr, $3.expr, $6.expr, $1.loc);
                 	}
                 |	Expr LESS_EQUAL Expr
                 	{
@@ -380,6 +438,26 @@ ForStmt         :	FOR '(' SimpleStmt ';' Expr ';'	SimpleStmt ')' Stmt
 						$$.stmt = new Tree.ForLoop($3.stmt, $5.expr, $7.stmt, $9.stmt, $1.loc);
 					}
                 ;
+
+ForeachStmt		:	FOREACH '(' BoundVariable IN Expr WHILE Expr')' Stmt
+					{
+						if ($3.vdef == null)
+							$$.stmt = new Tree.ForEach(null, $3.lvalue, $5.expr, $7.expr, $9.stmt, $1.loc);
+						else
+							$$.stmt = new Tree.ForEach($3.vdef, null, $5.expr, $7.expr, $9.stmt, $1.loc);
+					}
+				|	FOREACH	'(' BoundVariable IN Expr ')' Stmt
+					{
+						if ($3.vdef == null)
+							$$.stmt = new Tree.ForEach(null, $3.lvalue, $5.expr, new Tree.Literal(Tree.BOOL, true,$6.loc), $7.stmt, $1.loc);
+						else
+							$$.stmt = new Tree.ForEach($3.vdef, null, $5.expr, new Tree.Literal(Tree.BOOL, true, $6.loc), $7.stmt, $1.loc);
+					}
+				;
+					
+BoundVariable	:	Variable
+				|	AutoVariable
+				;
 
 BreakStmt       :	BREAK
 					{

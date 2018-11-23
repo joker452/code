@@ -4,9 +4,14 @@ import java.util.Iterator;
 
 import decaf.Driver;
 import decaf.tree.Tree;
+import decaf.tree.Tree.Assign;
+import decaf.tree.Tree.Block;
+import decaf.tree.Tree.ForEach;
+import decaf.tree.Tree.LValue.Kind;
 import decaf.error.BadArrElementError;
 import decaf.error.BadInheritanceError;
 import decaf.error.BadOverrideError;
+import decaf.error.BadSealedInherError;
 import decaf.error.BadVarTypeError;
 import decaf.error.ClassNotFoundError;
 import decaf.error.DecafError;
@@ -23,6 +28,7 @@ import decaf.symbol.Symbol;
 import decaf.symbol.Variable;
 import decaf.type.BaseType;
 import decaf.type.FuncType;
+
 
 public class BuildSym extends Tree.Visitor {
 
@@ -45,6 +51,8 @@ public class BuildSym extends Tree.Visitor {
 	public void visitTopLevel(Tree.TopLevel program) {
 		program.globalScope = new GlobalScope();
 		table.open(program.globalScope);
+		// all the operations in this for loop is in GlobalScope
+		// this aim
 		for (Tree.ClassDef cd : program.classes) {
 			Class c = new Class(cd.name, cd.parent, cd.getLocation());
 			Class earlier = table.lookupClass(cd.name);
@@ -52,27 +60,46 @@ public class BuildSym extends Tree.Visitor {
 				issueError(new DeclConflictError(cd.getLocation(), cd.name,
 						earlier.getLocation()));
 			} else {
+				// put the class symbol in the GlobalScope
 				table.declare(c);
 			}
+			// put the class symbol in the ClassDef node
 			cd.symbol = c;
 		}
 
+		// check inheritance for parent class
 		for (Tree.ClassDef cd : program.classes) {
 			Class c = cd.symbol;
-			if (cd.parent != null && c.getParent() == null) {
-				issueError(new ClassNotFoundError(cd.getLocation(), cd.parent));
-				c.dettachParent();
-			}
+			if (cd.parent != null) {
+				// parent class not declared
+				if (c.getParent() == null) {
+					issueError(new ClassNotFoundError(cd.getLocation(), cd.parent));
+					c.dettachParent();
+				}
+				else
+				{
+					// sealed parent class
+					for (Tree.ClassDef cls : program.classes)
+						if (cls.name.equals(cd.parent))
+							if (cls.isSealed == true) {
+								issueError(new BadSealedInherError(cd.getLocation()));
+								c.dettachParent();
+							}
+				}
+			}	
+			// cyclical inheritance
 			if (calcOrder(c) <= calcOrder(c.getParent())) {
 				issueError(new BadInheritanceError(cd.getLocation()));
 				c.dettachParent();
 			}
 		}
 
+		// create type for each class symbol
 		for (Tree.ClassDef cd : program.classes) {
 			cd.symbol.createType();
 		}
-
+		
+		// set the symbol corresponds to class Main
 		for (Tree.ClassDef cd : program.classes) {
 			cd.accept(this);
 			if (Driver.getDriver().getOption().getMainClassName().equals(
@@ -101,7 +128,37 @@ public class BuildSym extends Tree.Visitor {
 		}
 		table.close();
 	}
+	
+	@Override
+	public void visitAssign(Tree.Assign assign) {
+		assign.left.accept(this);
+	}
+	
+	@Override 
+	public void visitIdent(Tree.Ident ident) {
+		if (ident.isVar == true) {
+			Variable v = new Variable(ident.name, ident.type, ident.getLocation());
+			Symbol sym = table.lookup(ident.name, true);
+			if (sym != null) {
+				if (table.getCurrentScope().equals(sym.getScope())) {
+					issueError(new DeclConflictError(v.getLocation(), v.getName(),
+							sym.getLocation()));
+				} 
 
+				else if ((sym.getScope().isFormalScope() && table.getCurrentScope().isLocalScope() && ((LocalScope)table.getCurrentScope()).isCombinedtoFormal() )) {
+					issueError(new DeclConflictError(v.getLocation(), v.getName(),
+							sym.getLocation()));
+				}
+				else {
+					table.declare(v);
+				}
+			}
+			else 
+				table.declare(v);
+			ident.symbol = v;
+		}
+	}
+	
 	@Override
 	public void visitVarDef(Tree.VarDef varDef) {
 		varDef.type.accept(this);
@@ -114,12 +171,16 @@ public class BuildSym extends Tree.Visitor {
 		}
 		Variable v = new Variable(varDef.name, varDef.type.type, 
 				varDef.getLocation());
+		// look for namesake variable
 		Symbol sym = table.lookup(varDef.name, true);
 		if (sym != null) {
+			// namesake variable in one scope is not allowed
 			if (table.getCurrentScope().equals(sym.getScope())) {
 				issueError(new DeclConflictError(v.getLocation(), v.getName(),
 						sym.getLocation()));
-			} else if ((sym.getScope().isFormalScope() && table.getCurrentScope().isLocalScope() && ((LocalScope)table.getCurrentScope()).isCombinedtoFormal() )) {
+			} 
+			// neither is between a formal scope and a local scope
+			else if ((sym.getScope().isFormalScope() && table.getCurrentScope().isLocalScope() && ((LocalScope)table.getCurrentScope()).isCombinedtoFormal() )) {
 				issueError(new DeclConflictError(v.getLocation(), v.getName(),
 						sym.getLocation()));
 			} else {
@@ -133,10 +194,12 @@ public class BuildSym extends Tree.Visitor {
 
 	@Override
 	public void visitMethodDef(Tree.MethodDef funcDef) {
+		// check returnType
 		funcDef.returnType.accept(this);
 		Function f = new Function(funcDef.statik, funcDef.name,
 				funcDef.returnType.type, funcDef.body, funcDef.getLocation());
 		funcDef.symbol = f;
+		// check function namesake in the same ClassScope
 		Symbol sym = table.lookup(funcDef.name, false);
 		if (sym != null) {
 			issueError(new DeclConflictError(funcDef.getLocation(),
@@ -144,19 +207,24 @@ public class BuildSym extends Tree.Visitor {
 		} else {
 			table.declare(f);
 		}
+		// open the FormalScope of this function
 		table.open(f.getAssociatedScope());
 		for (Tree.VarDef d : funcDef.formals) {
 			d.accept(this);
+			// add the argument's type to the argument type list
 			f.appendParam(d.symbol);
 		}
 
 		funcDef.body.associatedScope = new LocalScope(funcDef.body);
 		funcDef.body.associatedScope.setCombinedtoFormal(true);
+		// open the LocalScope of this function
 		table.open(funcDef.body.associatedScope);
 		for (Tree s : funcDef.body.block) {
 			s.accept(this);
 		}
+		// close the LocalScope
 		table.close();
+		// close the FormalScope
 		table.close();
 	}
 
@@ -231,14 +299,50 @@ public class BuildSym extends Tree.Visitor {
 			ifStmt.falseBranch.accept(this);
 		}
 	}
-
+	
+	@Override
+	public void visitForEach(Tree.ForEach foreach) {
+		
+		if (foreach.action instanceof Tree.Block)
+			foreach.block = (Tree.Block) foreach.action;
+		else
+			foreach.block = new Tree.Block(null, foreach.action.getLocation());
+		foreach.block.associatedScope = new LocalScope(foreach.block);
+		table.open(foreach.block.associatedScope);
+		if (foreach.autobound != null)
+			foreach.autobound.accept(this);
+		else 
+			foreach.varbound.accept(this);
+		if (foreach.block.block != null) 
+			for (Tree s: foreach.block.block)
+				s.accept(this);
+		table.close();
+	}
+	
 	@Override
 	public void visitWhileLoop(Tree.WhileLoop whileLoop) {
 		if (whileLoop.loopBody != null) {
 			whileLoop.loopBody.accept(this);
 		}
 	}
-
+	
+	@Override
+	public void visitGuardStmt(Tree.GuardStmt guardStmt) {
+		if (guardStmt.guard != null)
+			for (Tree guard: guardStmt.guard) {
+				guard.accept(this);
+			}
+	}
+	
+	@Override
+	public void visitGuard(Tree.Guard guard) {
+		if (guard.stmt != null)
+			guard.stmt.accept(this);	
+	}
+	/**
+	 * subclass's order is parent class's order + 1
+	 * the upper most class has order 0
+	 */
 	private int calcOrder(Class c) {
 		if (c == null) {
 			return -1;
@@ -251,6 +355,7 @@ public class BuildSym extends Tree.Visitor {
 	}
 
 	private void checkOverride(Class c) {
+		// check each symbol only once
 		if (c.isCheck()) {
 			return;
 		}
@@ -258,6 +363,8 @@ public class BuildSym extends Tree.Visitor {
 		if (parent == null) {
 			return;
 		}
+		
+		// check parent class first
 		checkOverride(parent);
 
 		ClassScope parentScope = parent.getAssociatedScope();
@@ -268,17 +375,20 @@ public class BuildSym extends Tree.Visitor {
 			Symbol suspect = iter.next();
 			Symbol sym = table.lookup(suspect.getName(), true);
 			if (sym != null && !sym.isClass()) {
+				// symbol with same name needs to be of same type
 				if ((suspect.isVariable() && sym.isFunction())
 						|| (suspect.isFunction() && sym.isVariable())) {
 					issueError(new DeclConflictError(suspect.getLocation(),
 							suspect.getName(), sym.getLocation()));
 					iter.remove();
 				} else if (suspect.isFunction()) {
+					// static function only has one instance
 					if (((Function) suspect).isStatik()
 							|| ((Function) sym).isStatik()) {
 						issueError(new DeclConflictError(suspect.getLocation(),
 								suspect.getName(), sym.getLocation()));
 						iter.remove();
+					// only non static function with proper type can be overridsden
 					} else if (!suspect.getType().compatible(sym.getType())) {
 						issueError(new BadOverrideError(suspect.getLocation(),
 								suspect.getName(),
@@ -297,6 +407,11 @@ public class BuildSym extends Tree.Visitor {
 		c.setCheck(true);
 	}
 
+	/**
+	 * lookup function main in c.associatedScope,
+	 * return true when there is a main function and
+	 * its signature is legal
+	 */
 	private boolean isMainClass(Class c) {
 		if (c == null) {
 			return false;

@@ -1,5 +1,6 @@
 package decaf.type;
 
+
 public class BaseType extends Type {
 
 	private final String typeName;
@@ -19,6 +20,8 @@ public class BaseType extends Type {
 	public static final BaseType STRING = new BaseType("string");
 	
 	public static final BaseType VOID = new BaseType("void");
+	
+	public static final BaseType UNKNOWN = new BaseType("unknown");
 
 	@Override
 	public boolean isBaseType() {
@@ -36,6 +39,9 @@ public class BaseType extends Type {
 		return equal(type);
 	}
 
+	/**
+	 *  reference equality
+	 */
 	@Override
 	public boolean equal(Type type) {
 		return this == type;
