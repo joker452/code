@@ -409,8 +409,13 @@ static void test_stringify_string() {
     TEST_ROUNDTRIP("\"\"");
     TEST_ROUNDTRIP("\"Hello\"");
     TEST_ROUNDTRIP("\"Hello\\nWorld\"");
-    TEST_ROUNDTRIP("\"\\\" \\\\ / \\b \\f \\n \\r \\t\"");
+    TEST_ROUNDTRIP("\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
     TEST_ROUNDTRIP("\"Hello\\u0000World\"");
+    TEST_ROUNDTRIP("\"\\u0024\"");
+    TEST_ROUNDTRIP("\"\\u00A2\"");
+    TEST_ROUNDTRIP("\"\\u20AC\"");
+    TEST_ROUNDTRIP("\"\\uD834\\uDD1E\"");
+    TEST_ROUNDTRIP("\"\\ud834\\udd1e\"");
 }
 
 static void test_stringify_array() {
