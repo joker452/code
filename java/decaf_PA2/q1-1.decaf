@@ -1,36 +1,28 @@
-class Father {
-	int d;
-	int foo(){
-		return d;
+class people {
+	string name;
+	int age;
+	int getage() { return age; }
+	string getname() { return name; }
+}
+	
+class student extends people {
+	string stuid;
+	string getstuid() { return stuid;}
+}
+
+class Classroom {
+	class student[] studentlist;
+	void liststudents() {
+	    this.studentlist = new class student[5];
+		int a;
+		foreach(var stu in studentlist)
+			Print(stu.getname());
 	}
 }
-class Child extends Father{
-	int b;
-}
-class Main {
-    static void main() {
 
-		class Child[] a;
-		class Child[] b;
-		class Child d;
-		int c;
-			
-		foreach(var i in a while c>2){
-			int x ;
-			x = i.foo();
-		}
-		foreach(var i in a while c>2){
-			int x ;
-			x = i.b();
-		}
-		foreach(var i in d  while c>2){
-			int x ;
-			x = i.b();
-		}
-		foreach(var i in u while c>2){
-			int x ;
-			x = i.b();
-		}
-		
+class Main {
+	static void main() {
+	class Classroom c;
+	c.liststudents();
 	}
 }

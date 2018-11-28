@@ -1,13 +1,11 @@
 package decaf.typecheck;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 import decaf.Driver;
 import decaf.tree.Tree;
-import decaf.tree.Tree.Assign;
-import decaf.tree.Tree.Block;
-import decaf.tree.Tree.ForEach;
-import decaf.tree.Tree.LValue.Kind;
 import decaf.error.BadArrElementError;
 import decaf.error.BadInheritanceError;
 import decaf.error.BadOverrideError;
@@ -305,8 +303,11 @@ public class BuildSym extends Tree.Visitor {
 		
 		if (foreach.action instanceof Tree.Block)
 			foreach.block = (Tree.Block) foreach.action;
-		else
-			foreach.block = new Tree.Block(null, foreach.action.getLocation());
+		else {
+			List<Tree> stmt = new ArrayList<Tree>();
+			stmt.add(foreach.action);
+			foreach.block = new Tree.Block(stmt, foreach.action.getLocation());
+		}
 		foreach.block.associatedScope = new LocalScope(foreach.block);
 		table.open(foreach.block.associatedScope);
 		if (foreach.autobound != null)
