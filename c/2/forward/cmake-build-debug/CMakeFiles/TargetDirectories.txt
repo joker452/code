@@ -1,3 +1,0 @@
-/mnt/hgfs/network/2/forward框架/cmake-build-debug/CMakeFiles/rebuild_cache.dir
-/mnt/hgfs/network/2/forward框架/cmake-build-debug/CMakeFiles/edit_cache.dir
-/mnt/hgfs/network/2/forward框架/cmake-build-debug/CMakeFiles/forward.dir
