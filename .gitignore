@@ -4,3 +4,9 @@
 *.o
 *.exe
 *.a
+cmake-build-debug/
+__pycache__/
+.cproject
+.project
+.settings/
+.classpath
