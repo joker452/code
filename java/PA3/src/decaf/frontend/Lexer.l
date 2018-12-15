@@ -84,6 +84,7 @@ WHITESPACE			= ([ \t]+)
 "&&"				{ return operator(Parser.AND);			}
 "||"				{ return operator(Parser.OR);			}
 "|||"				{ return operator(Parser.SEP);			}
+"%%"				{ return operator(Parser.INIT);			}
 {SIMPLE_OPERATOR}	{ return operator((int)yycharat(0));	}
 
 	// 识别常数的规则

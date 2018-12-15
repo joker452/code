@@ -303,8 +303,9 @@ public abstract class Tree {
     public static final int MUL = MINUS + 1;
     public static final int DIV = MUL + 1;
     public static final int MOD = DIV + 1;
+    public static final int INIT = MOD + 1;
 
-    public static final int NULL = MOD + 1;
+    public static final int NULL = INIT + 1;
     public static final int CALLEXPR = NULL + 1;
     public static final int THISEXPR = CALLEXPR + 1;
     public static final int READINTEXPR = THISEXPR + 1;
@@ -1058,6 +1059,9 @@ public abstract class Tree {
     		case GE:
     			binaryOperatorPrintTo(pw, "geq");
     			break;
+    		case INIT:
+		    	binaryOperatorPrintTo(pw, "array repeat");
+		        break;
     		}
     	}
     }

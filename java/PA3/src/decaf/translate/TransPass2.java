@@ -8,6 +8,7 @@ import decaf.machdesc.Intrinsic;
 import decaf.symbol.Symbol;
 import decaf.symbol.Variable;
 import decaf.tac.Label;
+import decaf.tac.Tac;
 import decaf.tac.Temp;
 import decaf.type.BaseType;
 
@@ -103,9 +104,24 @@ public class TransPass2 extends Tree.Visitor {
 		case Tree.NE:
 			genEquNeq(expr);
 			break;
+		case Tree.INIT:
+			expr.val = tr.genInit(expr.left.type.isClassType(),
+					expr.left, expr.right.val);
 		}
 	}
 
+	@Override
+	public void visitIndexed(Tree.Indexed indexed) {
+		indexed.array.accept(this);
+		indexed.index.accept(this);
+		tr.genCheckArrayIndex(indexed.array.val, indexed.index.val);
+		
+		Temp esz = tr.genLoadImm4(OffsetCounter.WORD_SIZE);
+		Temp t = tr.genMul(indexed.index.val, esz);
+		Temp base = tr.genAdd(indexed.array.val, t);
+		indexed.val = tr.genLoad(base, 0);
+	}
+	
 	private void genEquNeq(Tree.Binary expr) {
 		if (expr.left.type.equal(BaseType.STRING)
 				|| expr.right.type.equal(BaseType.STRING)) {
@@ -236,18 +252,6 @@ public class TransPass2 extends Tree.Visitor {
 				tr.genIntrinsicCall(Intrinsic.PRINT_STRING);
 			}
 		}
-	}
-
-	@Override
-	public void visitIndexed(Tree.Indexed indexed) {
-		indexed.array.accept(this);
-		indexed.index.accept(this);
-		tr.genCheckArrayIndex(indexed.array.val, indexed.index.val);
-		
-		Temp esz = tr.genLoadImm4(OffsetCounter.WORD_SIZE);
-		Temp t = tr.genMul(indexed.index.val, esz);
-		Temp base = tr.genAdd(indexed.array.val, t);
-		indexed.val = tr.genLoad(base, 0);
 	}
 	
 	@Override

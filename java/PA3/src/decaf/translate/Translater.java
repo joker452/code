@@ -20,6 +20,7 @@ import decaf.tac.Tac;
 import decaf.tac.Temp;
 import decaf.tac.VTable;
 import decaf.type.BaseType;
+import decaf.type.ClassType;
 import decaf.type.Type;
 
 public class Translater {
@@ -380,6 +381,17 @@ public class Translater {
 		genMark(exit);
 	}
 
+	public void genCheckInitSize(Temp size) {
+		Label exit = Label.createLabel();
+		Temp cond = genLes(size, genLoadImm4(0));
+		genBeqz(cond, exit);
+		Temp msg = genLoadStrConst(RuntimeError.NEGATIVE_INIT);
+		genParm(msg);
+		genIntrinsicCall(Intrinsic.PRINT_STRING);
+		genIntrinsicCall(Intrinsic.HALT);
+		genMark(exit);
+	}
+	
 	public void genCheckNewArraySize(Temp size) {
 		Label exit = Label.createLabel();
 		Temp cond = genLes(size, genLoadImm4(0));
@@ -407,6 +419,41 @@ public class Translater {
 		genBeqz(size, exit);
 		append(Tac.genSub(obj, obj, unit));
 		genStore(zero, obj, 0);
+		genBranch(loop);
+		genMark(exit);
+		return obj;
+	}
+
+	public Temp genInit(boolean isClass, Tree.Expr left, Temp length) {
+		genCheckInitSize(length);
+		Temp unit = genLoadImm4(OffsetCounter.WORD_SIZE);
+		Temp size = genAdd(unit, genMul(unit, length));
+		genParm(size);
+		Temp obj = genIntrinsicCall(Intrinsic.ALLOCATE);
+		genStore(length, obj, 0);
+		Label loop = Label.createLabel();
+		Label exit = Label.createLabel();
+		append(Tac.genAdd(obj, obj, size));
+		genMark(loop);
+		append(Tac.genSub(size, size, unit));
+		genBeqz(size, exit);
+		append(Tac.genSub(obj, obj, unit));
+		if (!isClass)
+			genStore(left.val, obj, 0);
+		else {
+			Class sym = ((ClassType)left.type).getSymbol();
+			Iterator <Symbol> it = sym.getAssociatedScope().iterator();
+			// Is new necessary?
+			genStore(genDirectCall(sym.getNewFuncLabel(),BaseType.INT), obj, 0);
+			while (it.hasNext()) {
+				Symbol s = it.next();
+				if (s.isVariable()) {
+					Variable v = (Variable) s;
+					genStore(genLoad(left.val, v.getOffset()), 
+							genLoad(obj, 0), v.getOffset());
+				}
+			}
+		}
 		genBranch(loop);
 		genMark(exit);
 		return obj;
