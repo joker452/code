@@ -1,1 +1,1 @@
-*** Error at (10,22): syntax error
+*** Error at (10,24): syntax error

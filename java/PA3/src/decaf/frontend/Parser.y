@@ -33,7 +33,8 @@ import java.util.*;
 %token LESS_EQUAL   GREATER_EQUAL  EQUAL   NOT_EQUAL
 %token '+'  '-'  '*'  '/'  '%'  '='  '>'  '<'  '.'
 %token ','  ';'  '!'  '('  ')'  '['  ']'  '{'  '}'
-%token SCOPY SEALED SEP
+%token SCOPY SEALED SEP VAR
+
 %left OR
 %left AND 
 %nonassoc EQUAL NOT_EQUAL
@@ -260,7 +261,7 @@ Receiver     	:	Expr '.'
 
 LValue          :	Receiver IDENTIFIER
 					{
-						$$.lvalue = new Tree.Ident($1.expr, $2.ident, $2.loc);
+						$$.lvalue = new Tree.Ident(false, $1.expr, $2.ident, $2.loc);
 						if ($1.loc == null) {
 							$$.loc = $2.loc;
 						}
@@ -269,6 +270,13 @@ LValue          :	Receiver IDENTIFIER
                 	{
                 		$$.lvalue = new Tree.Indexed($1.expr, $3.expr, $1.loc);
                 	}
+                |	AutoVariable
+                ;
+
+AutoVariable	:	VAR IDENTIFIER
+                    {
+                    	$$.lvalue = new Tree.Ident(true, null, $2.ident, $2.loc);
+                    }
                 ;
 
 Call            :	Receiver IDENTIFIER '(' Actuals ')'

@@ -115,7 +115,37 @@ public class BuildSym extends Tree.Visitor {
 		}
 		table.close();
 	}
+	
+	@Override
+	public void visitAssign(Tree.Assign assign) {
+		assign.left.accept(this);
+	}
+	
+	@Override 
+	public void visitIdent(Tree.Ident ident) {
+		if (ident.isVar == true) {
+			Variable v = new Variable(ident.name, ident.type, ident.getLocation());
+			Symbol sym = table.lookup(ident.name, true);
+			if (sym != null) {
+				if (table.getCurrentScope().equals(sym.getScope())) {
+					issueError(new DeclConflictError(v.getLocation(), v.getName(),
+							sym.getLocation()));
+				} 
 
+				else if ((sym.getScope().isFormalScope() && table.getCurrentScope().isLocalScope() && ((LocalScope)table.getCurrentScope()).isCombinedtoFormal() )) {
+					issueError(new DeclConflictError(v.getLocation(), v.getName(),
+							sym.getLocation()));
+				}
+				else {
+					table.declare(v);
+				}
+			}
+			else 
+				table.declare(v);
+			ident.symbol = v;
+		}
+	}
+	
 	@Override
 	public void visitVarDef(Tree.VarDef varDef) {
 		varDef.type.accept(this);
@@ -164,7 +194,16 @@ public class BuildSym extends Tree.Visitor {
 			d.accept(this);
 			f.appendParam(d.symbol);
 		}
-		funcDef.body.accept(this);
+		funcDef.body.associatedScope = new LocalScope(funcDef.body);
+		funcDef.body.associatedScope.setCombinedtoFormal(true);
+		// open the LocalScope of this function
+		table.open(funcDef.body.associatedScope);
+		for (Tree s : funcDef.body.block) {
+			s.accept(this);
+		}
+		// close the LocalScope
+		table.close();
+		// close the FormalScope
 		table.close();
 	}
 

@@ -74,9 +74,11 @@ public class TransPass2 extends Tree.Visitor {
 			expr.val = tr.genMul(expr.left.val, expr.right.val);
 			break;
 		case Tree.DIV:
+			tr.genCheckDivsion(expr.right.val);
 			expr.val = tr.genDiv(expr.left.val, expr.right.val);
 			break;
 		case Tree.MOD:
+			tr.genCheckDivsion(expr.right.val);
 			expr.val = tr.genMod(expr.left.val, expr.right.val);
 			break;
 		case Tree.AND:
@@ -139,6 +141,11 @@ public class TransPass2 extends Tree.Visitor {
 			tr.genStore(assign.expr.val, varRef.owner.val, varRef.symbol
 					.getOffset());
 			break;
+		case AUTO_VAR:
+			Temp temp = Temp.createTempI4();
+			Variable v = ((Tree.Ident) assign.left).symbol;
+			temp.sym = v;
+			v.setTemp(temp);
 		case PARAM_VAR:
 		case LOCAL_VAR:
 			tr.genAssign(((Tree.Ident) assign.left).symbol.getTemp(),
