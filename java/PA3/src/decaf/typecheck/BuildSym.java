@@ -247,6 +247,20 @@ public class BuildSym extends Tree.Visitor {
 		}
 	}
 
+	@Override
+	public void visitGuardStmt(Tree.GuardStmt guardStmt) {
+		if (guardStmt.guard != null)
+			for (Tree guard: guardStmt.guard) {
+				guard.accept(this);
+			}
+	}
+	
+	@Override
+	public void visitGuard(Tree.Guard guard) {
+		if (guard.stmt != null)
+			guard.stmt.accept(this);	
+	}
+	
 	private int calcOrder(Class c) {
 		if (c == null) {
 			return -1;

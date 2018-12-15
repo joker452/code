@@ -2,9 +2,7 @@ package decaf.translate;
 
 import java.util.Iterator;
 import java.util.Stack;
-
 import decaf.tree.Tree;
-import decaf.tree.Tree.Scopy;
 import decaf.backend.OffsetCounter;
 import decaf.machdesc.Intrinsic;
 import decaf.symbol.Symbol;
@@ -244,6 +242,7 @@ public class TransPass2 extends Tree.Visitor {
 		Temp base = tr.genAdd(indexed.array.val, t);
 		indexed.val = tr.genLoad(base, 0);
 	}
+	
 	@Override
 	public void visitScopy(Tree.Scopy scopy) {
 		scopy.from.accept(this);
@@ -360,7 +359,20 @@ public class TransPass2 extends Tree.Visitor {
 			tr.genMark(exit);
 		}
 	}
-
+	
+	@Override
+	public void visitGuardStmt(Tree.GuardStmt guardStmt) {
+		if (guardStmt.guard != null)
+			for (Tree expr: guardStmt.guard) {
+				Tree.Guard guard = (Tree.Guard) expr;
+				Label next = Label.createLabel();
+				guard.condition.accept(this);
+				tr.genBeqz(guard.condition.val, next);
+				guard.stmt.accept(this);
+				tr.genMark(next);
+			}
+	}
+	
 	@Override
 	public void visitNewArray(Tree.NewArray newArray) {
 		newArray.length.accept(this);

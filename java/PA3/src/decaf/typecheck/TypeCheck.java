@@ -462,7 +462,21 @@ public class TypeCheck extends Tree.Visitor {
 		}
 		table.close();
 	}
-
+	
+	@Override
+	public void visitGuardStmt(Tree.GuardStmt guardStmt) {
+		if (guardStmt.guard != null)
+			for (Tree guard: guardStmt.guard) {
+				guard.accept(this);
+			}
+	}
+	
+	@Override
+	public void visitGuard(Tree.Guard guard) {
+		checkTestExpr(guard.condition);
+		guard.stmt.accept(this);	
+	}
+	
 	@Override
 	public void visitAssign(Tree.Assign assign) {
 		assign.left.accept(this);

@@ -1,39 +1,11 @@
-class A {
-    int a;
-    void seta(int a){
-    	this.a = a;
-    }
-    int getA(){
-    	return a;
-    }
-}
-class Father {
-    int field;
-    class A a;
-    void setfield(int f) {
-        this.field = f;
-        this.a = new A();
-    }
-    void seta(int a) {
-        this.a.seta(a);
-    }
-    int getA() {
-        this.a.getA();
-    }
-}
-
 class Main {
-	static void main() {
-		class Father a;
-		class Father b;
-		b = new Father();
-		b.setfield(5);
-		b.seta(10);
-		scopy(a,b);
-		Print(b.getA());
-		Print(a.getA());
-		b.seta(5);
-		Print(b.getA());
-		Print(a.getA());
-	}
+  static void main() {
+	int a;
+  a = ReadInteger();
+  int b;
+  if {a>100 : b=a-100;|||
+    a<50 : b=a+50;|||
+    a<0:  {b=a+200;Print(a);}
+  };
+  }
 }
