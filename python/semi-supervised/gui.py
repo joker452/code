@@ -66,25 +66,10 @@ class MainWindow(QMainWindow):
         if self.checkSave():
             self.label = QLabel(self)
             self.label.setScaledContents(True)
-            self.filename, _ = QFileDialog.getOpenFileName(caption="Open an image",
-                                                           filter="JPEG (*.jpeg *.jpg);;PNG (*.png)")
+            self.filename, _ = QFileDialog.getOpenFileName(caption="Open an image",                                                          filter="JPEG (*.jpeg *.jpg);;PNG (*.png)")
             if self.filename:
-                self.file = QFile(self.filename)
-                if not self.file.open(QIODevice.ReadOnly):
-                    return False
-                self.imageData = self.file.readAll()
-                if self.imageData.isEmpty():
-                    return False
-                self.file.close()
-
-                self.image = QImage()
-                self.buffer = QBuffer(self.imageData)
-                self.buffer.open(QIODevice.ReadOnly)
-                self.image.load(self.buffer, "jpg")
-                self.buffer.close()
                 self.setCentralWidget(self.label)
-
-                self.pixmap = QPixmap.fromImage(self.image)
+                self.pixmap = QPixmap(self.filename)
                 self.frameGeometry().size()
 
                 self.resize(self.pixmap.size())
@@ -95,7 +80,6 @@ class MainWindow(QMainWindow):
 
     def search(self):
         text, ok = QInputDialog.getText(self, 'Input', "Enter")
-        print("Label size after", self.label.size())
 
     def movetoCenter(self):
         frame_geometry = self.frameGeometry()
@@ -109,31 +93,18 @@ class MainWindow(QMainWindow):
     def saveasFile(self):
         savefile, filter = QFileDialog.getSaveFileName(caption="Save as", directory='./no_title.jpeg',
                                                filter="JPEG (*.jpeg, *.jpg);;PNG (*.png);;BMP (*.bmp)")
-        print(self.image)
-        if self.image:
-            # print(savefile)
-            # savefile = savefile.lower()
-            # if filter.startswith('JPEG'):
-            #     if not savefile.endswith('jpeg') and not savefile.endswith('jpg'):
-            #         savefile += '.jpeg'
-            # elif filter.startswith('PNG'):
-            #     if not savefile.endswith('png'):
-            #         savefile += '.png'
-            # else:
-            #     if not savefile.endswith('bmp'):
-            #         savefile += '.bmp'
-            # self.image.save(savefile, quality=100)
-            self.imageData = QByteArray()
-            self.buffer = QBuffer(self.imageData)
-            self.buffer.open(QIODevice.WriteOnly)
-            self.image.save(self.buffer)
-            print(self.buffer.size())
-            file = QSaveFile(savefile)
-            if not file.open(QIODevice.WriteOnly):
-                print("No")
-                return False
-            print(self.imageData.size())
-            file.write(self.imageData)
+        if self.pixmap:
+            savefile = savefile.lower()
+            if filter.startswith('JPEG'):
+                if not savefile.endswith('jpeg') and not savefile.endswith('jpg'):
+                    savefile += '.jpeg'
+            elif filter.startswith('PNG'):
+                if not savefile.endswith('png'):
+                    savefile += '.png'
+            else:
+                if not savefile.endswith('bmp'):
+                    savefile += '.bmp'
+            self.pixmap.save(savefile, quality=100)
 
 
     def checkSave(self):
