@@ -264,6 +264,8 @@ public class Translater {
 		append(Tac.genAssign(dst, src));
 	}
 
+
+	
 	public Temp genLoadVTable(VTable vtbl) {
 		Temp dst = Temp.createTempI4();
 		append(Tac.genLoadVtbl(dst, vtbl));
@@ -325,6 +327,10 @@ public class Translater {
 		return dst;
 	}
 
+	public void genNormal(Temp dst, Temp base, int offset) {
+		append(Tac.genLoad(dst, base, Temp.createConstTemp(offset)));
+	}
+	
 	public void genStore(Temp src, Temp base, int offset) {
 		append(Tac.genStore(src, base, Temp.createConstTemp(offset)));
 	}

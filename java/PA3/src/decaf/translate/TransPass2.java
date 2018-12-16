@@ -4,6 +4,7 @@ import java.util.Iterator;
 import java.util.Stack;
 import decaf.tree.Tree;
 import decaf.backend.OffsetCounter;
+import decaf.error.RuntimeError;
 import decaf.machdesc.Intrinsic;
 import decaf.symbol.Symbol;
 import decaf.symbol.Variable;
@@ -369,6 +370,31 @@ public class TransPass2 extends Tree.Visitor {
 			}
 			tr.genMark(exit);
 		}
+	}
+	
+	@Override
+	public void visitDefault(Tree.Default def) {
+		def.array.accept(this);
+		def.index.accept(this);
+		def.other.accept(this);
+		def.val = Temp.createTempI4();
+		Temp length = tr.genLoad(def.array.val, -OffsetCounter.WORD_SIZE);
+		Temp cond = tr.genLes(def.index.val, length);
+		Label other = Label.createLabel();
+		tr.genBeqz(cond, other);
+		cond = tr.genLes(def.index.val, tr.genLoadImm4(0));
+		Label normal = Label.createLabel();
+		Label exit = Label.createLabel();
+		tr.genBeqz(cond, normal);
+		tr.genMark(other);
+		tr.genAssign(def.val, def.other.val);
+		tr.genBranch(exit);
+		tr.genMark(normal);
+		Temp esz = tr.genLoadImm4(OffsetCounter.WORD_SIZE);
+		Temp t = tr.genMul(def.index.val, esz);
+		Temp base = tr.genAdd(def.array.val, t);
+		tr.genNormal(def.val, base, 0);
+		tr.genMark(exit);
 	}
 	
 	@Override

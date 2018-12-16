@@ -11,7 +11,10 @@ import decaf.tree.Tree.Scopy;
 import decaf.error.BadArgCountError;
 import decaf.error.BadArgTypeError;
 import decaf.error.BadArrElementError;
+import decaf.error.BadArrIndexError;
+import decaf.error.BadArrOperArgError;
 import decaf.error.BadArrTimesError;
+import decaf.error.BadDefError;
 import decaf.error.BadLengthArgError;
 import decaf.error.BadLengthError;
 import decaf.error.BadNewArrayLength;
@@ -139,6 +142,7 @@ public class TypeCheck extends Tree.Visitor {
 		}
 	}
 
+	
 	private void checkCallExpr(Tree.CallExpr callExpr, Symbol f) {
 		Type receiverType = callExpr.receiver == null ? ((ClassScope) table
 				.lookForScope(Scope.Kind.CLASS)).getOwner().getType()
@@ -243,6 +247,40 @@ public class TypeCheck extends Tree.Visitor {
 		checkCallExpr(callExpr, cs.lookupVisible(callExpr.method));
 	}
 
+	@Override
+	public void visitDefault(Tree.Default def) {
+		
+		def.type = BaseType.ERROR;
+		def.array.accept(this);
+		if (!def.array.type.isArrayType()) {
+			issueError(new BadArrOperArgError(def.array.getLocation()));
+			def.array.type = BaseType.ERROR;
+		}
+		else 
+			def.type = ((ArrayType) def.array.type).getElementType();
+			
+
+		def.index.accept(this);
+		if (!def.index.type.equal(BaseType.INT))
+			issueError(new BadArrIndexError(def.index.getLocation()));
+		
+		def.other.accept(this);
+		if (!def.type.equal(BaseType.ERROR)) {
+			if (!def.other.type.equal(BaseType.ERROR)) {
+				if (!def.type.equal(def.other.type))
+					issueError(new BadDefError(def.index.getLocation(), 
+							def.type.toString(), def.other.type.toString()));
+			}
+		}
+		else {
+			if (!def.other.type.equal(BaseType.ERROR)) {
+				if (!def.other.type.equal(BaseType.VOID) && 
+					!def.other.type.equal(BaseType.UNKNOWN)) 
+					def.type = def.other.type;
+			}
+		}
+	}
+	
 	@Override
 	public void visitExec(Tree.Exec exec){
 		exec.expr.accept(this);

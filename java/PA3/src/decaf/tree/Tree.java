@@ -14,6 +14,8 @@ import decaf.scope.*;
 import decaf.symbol.*;
 import decaf.symbol.Class;
 import decaf.tac.Temp;
+import decaf.tree.Tree.Expr;
+import decaf.tree.Tree.Visitor;
 import decaf.utils.IndentPrintWriter;
 import decaf.utils.MiscUtils;
 
@@ -220,9 +222,14 @@ public abstract class Tree {
     public static final int INDEXED = GUARD + 1;
 
     /**
+     * Default array expressions, of type Default
+     */
+    public static final int DEFAULT = INDEXED + 1;
+    
+    /**
      * Selections, of type Select.
      */
-    public static final int SELECT = INDEXED + 1;
+    public static final int SELECT = DEFAULT + 1;
 
     /**
      * Simple identifiers, of type Ident.
@@ -1280,6 +1287,41 @@ public abstract class Tree {
     }
 
     /**
+     * An array default expression
+     */
+    public static class Default extends Expr {
+
+    	public Expr array;
+    	public Expr index;
+    	public Expr other;
+
+    	public Default(Expr array, Expr index, Expr other, Location loc) {
+    	    super(DEFAULT, loc);
+    	    this.array = array;
+    	    this.index = index;
+    	    this.other = other;
+	}
+
+    	@Override
+        public void accept(Visitor v) {
+            v.visitDefault(this);
+        }
+
+    	@Override
+    	public void printTo(IndentPrintWriter pw) {
+    		pw.println("arrref");
+    		pw.incIndent();
+    		array.printTo(pw);
+    		index.printTo(pw);
+    		pw.println("default");
+    		pw.incIndent();
+    		other.printTo(pw);
+    		pw.decIndent();
+    		pw.decIndent();
+    	}
+    }
+    
+    /**
       * An identifier
       */
     public static class Ident extends LValue {
@@ -1610,6 +1652,10 @@ public abstract class Tree {
         
         public void visitGuardStmt(GuardStmt that) {
         	visitGuardStmt(that);
+        }
+        
+        public void visitDefault(Default that) {
+        	visitDefault(that);
         }
         
         public void visitTree(Tree that) {
