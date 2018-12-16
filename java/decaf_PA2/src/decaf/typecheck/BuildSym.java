@@ -340,6 +340,7 @@ public class BuildSym extends Tree.Visitor {
 		if (guard.stmt != null)
 			guard.stmt.accept(this);	
 	}
+	
 	/**
 	 * subclass's order is parent class's order + 1
 	 * the upper most class has order 0

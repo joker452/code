@@ -8,17 +8,12 @@ import java.util.Stack;
 import decaf.Driver;
 import decaf.Location;
 import decaf.tree.Tree;
-import decaf.tree.Tree.ForEach;
-import decaf.tree.Tree.GuardStmt;
-import decaf.tree.Tree.Indexed;
 import decaf.tree.Tree.Scopy;
 import decaf.error.BadArgCountError;
 import decaf.error.BadArgTypeError;
 import decaf.error.BadArrElementError;
-import decaf.error.BadArrIndexError;
 import decaf.error.BadArrOperArgError;
 import decaf.error.BadArrTimesError;
-import decaf.error.BadDefError;
 import decaf.error.BadForeachTypeError;
 import decaf.error.BadLengthArgError;
 import decaf.error.BadLengthError;
@@ -46,7 +41,6 @@ import decaf.error.UndeclVarError;
 import decaf.frontend.Parser;
 import decaf.scope.ClassScope;
 import decaf.scope.FormalScope;
-import decaf.scope.LocalScope;
 import decaf.scope.Scope;
 import decaf.scope.ScopeStack;
 import decaf.scope.Scope.Kind;
@@ -148,39 +142,7 @@ public class TypeCheck extends Tree.Visitor {
 		}
 	}
 	
-	@Override
-	public void visitDefault(Tree.Default def) {
-		
-		def.type = BaseType.ERROR;
-		def.array.accept(this);
-		if (!def.array.type.isArrayType()) {
-			issueError(new BadArrOperArgError(def.array.getLocation()));
-			def.array.type = BaseType.ERROR;
-		}
-		else 
-			def.type = ((ArrayType) def.array.type).getElementType();
-			
 
-		def.index.accept(this);
-		if (!def.index.type.equal(BaseType.INT))
-			issueError(new BadArrIndexError(def.index.getLocation()));
-		
-		def.other.accept(this);
-		if (!def.type.equal(BaseType.ERROR)) {
-			if (!def.other.type.equal(BaseType.ERROR)) {
-				if (!def.type.equal(def.other.type))
-					issueError(new BadDefError(def.index.getLocation(), 
-							def.type.toString(), def.other.type.toString()));
-			}
-		}
-		else {
-			if (!def.other.type.equal(BaseType.ERROR)) {
-				if (!def.other.type.equal(BaseType.VOID) && 
-					!def.other.type.equal(BaseType.UNKNOWN)) 
-					def.type = def.other.type;
-			}
-		}
-	}
 	
 	private void checkCallExpr(Tree.CallExpr callExpr, Symbol f) {
 		Type receiverType = callExpr.receiver == null ? ((ClassScope) table
@@ -297,7 +259,6 @@ public class TypeCheck extends Tree.Visitor {
 	
 		table.open(block.associatedScope);
 		foreach.range.accept(this);
-		checkTestExpr(foreach.condition);
 		if (foreach.autobound != null) {
 			if (!foreach.range.type.isArrayType()) {
 				if (!foreach.range.type.equal(BaseType.ERROR))
@@ -327,6 +288,7 @@ public class TypeCheck extends Tree.Visitor {
 			}
 			
 		}
+		checkTestExpr(foreach.condition);
 		breaks.add(foreach);
 		if (block.block != null) 
 			for (Tree s: block.block)

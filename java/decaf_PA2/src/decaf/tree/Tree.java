@@ -13,13 +13,6 @@ import decaf.type.*;
 import decaf.scope.*;
 import decaf.symbol.*;
 import decaf.symbol.Class;
-import decaf.tree.Tree.Expr;
-import decaf.tree.Tree.Guard;
-import decaf.tree.Tree.GuardStmt;
-import decaf.tree.Tree.Ident;
-import decaf.tree.Tree.LValue;
-import decaf.tree.Tree.VarDef;
-import decaf.tree.Tree.Visitor;
 import decaf.utils.IndentPrintWriter;
 import decaf.utils.MiscUtils;
 
@@ -841,7 +834,7 @@ public abstract class Tree {
 		for (Tree t: guard)
 		    t.printTo(pw);
 	    pw.decIndent();
-	}
+	    }
     }
     
     /**
@@ -870,7 +863,7 @@ public abstract class Tree {
 	    condition.printTo(pw);
 	    stmt.printTo(pw);
 	    pw.decIndent();
-	}
+	    }
     }
     
     /**
