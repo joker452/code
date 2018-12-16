@@ -176,6 +176,10 @@ public class Translater {
 		return dst;
 	}
 
+	public void genInplaceAdd(Temp dst, Temp src1, Temp src2) {
+		append(Tac.genAdd(dst, src1, src2));
+	}
+	
 	public Temp genSub(Temp src1, Temp src2) {
 		Temp dst = Temp.createTempI4();
 		append(Tac.genSub(dst, src1, src2));
@@ -327,7 +331,7 @@ public class Translater {
 		return dst;
 	}
 
-	public void genNormal(Temp dst, Temp base, int offset) {
+	public void genInplaceLoad(Temp dst, Temp base, int offset) {
 		append(Tac.genLoad(dst, base, Temp.createConstTemp(offset)));
 	}
 	
@@ -398,6 +402,7 @@ public class Translater {
 		genMark(exit);
 	}
 	
+
 	public void genCheckNewArraySize(Temp size) {
 		Label exit = Label.createLabel();
 		Temp cond = genLes(size, genLoadImm4(0));

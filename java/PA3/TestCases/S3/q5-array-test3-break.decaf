@@ -13,7 +13,7 @@ class Main {
 		int[] a;
 		int c;
 		c = 3;
-		a = c%%10;	
+		a = c%% 10;	
 		foreach(int i in a while c>2){
 			c = c+i;
 			Print(i);

@@ -393,10 +393,41 @@ public class TransPass2 extends Tree.Visitor {
 		Temp esz = tr.genLoadImm4(OffsetCounter.WORD_SIZE);
 		Temp t = tr.genMul(def.index.val, esz);
 		Temp base = tr.genAdd(def.array.val, t);
-		tr.genNormal(def.val, base, 0);
+		tr.genInplaceLoad(def.val, base, 0);
 		tr.genMark(exit);
 	}
 	
+	@Override 
+	public void visitForEach(Tree.ForEach foreach) {
+		foreach.range.accept(this);
+		Label exit = Label.createLabel();
+		Temp length = tr.genLoad(foreach.range.val, -OffsetCounter.WORD_SIZE);
+		Temp t = Temp.createTempI4();
+		Temp unit = tr.genLoadImm4(OffsetCounter.WORD_SIZE);
+		Temp size = tr.genMul(unit, length);
+		Temp index = tr.genLoadImm4(0);
+		Label loop = Label.createLabel();
+		if (foreach.autobound != null) {
+			t.sym = ((Tree.Ident) foreach.autobound).symbol;
+			((Tree.Ident) foreach.autobound).symbol.setTemp(t);	
+		}
+		else {
+			t.sym = foreach.varbound.symbol;
+			foreach.varbound.symbol.setTemp(t);
+		}
+		tr.genMark(loop);
+	    tr.genInplaceLoad(t, tr.genAdd(foreach.range.val, index), 0);
+		tr.genInplaceAdd(index, index, unit);
+		foreach.condition.accept(this);
+		tr.genBeqz(foreach.condition.val, exit);
+		loopExits.push(exit);
+		foreach.action.accept(this);
+		Temp cond = tr.genLes(index, size);
+		tr.genBeqz(cond, exit);
+		tr.genBranch(loop);
+		loopExits.pop();
+		tr.genMark(exit);
+	}
 	@Override
 	public void visitGuardStmt(Tree.GuardStmt guardStmt) {
 		if (guardStmt.guard != null)

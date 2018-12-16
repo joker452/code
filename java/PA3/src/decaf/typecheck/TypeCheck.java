@@ -15,6 +15,7 @@ import decaf.error.BadArrIndexError;
 import decaf.error.BadArrOperArgError;
 import decaf.error.BadArrTimesError;
 import decaf.error.BadDefError;
+import decaf.error.BadForeachTypeError;
 import decaf.error.BadLengthArgError;
 import decaf.error.BadLengthError;
 import decaf.error.BadNewArrayLength;
@@ -284,6 +285,50 @@ public class TypeCheck extends Tree.Visitor {
 	@Override
 	public void visitExec(Tree.Exec exec){
 		exec.expr.accept(this);
+	}
+
+	@Override
+	public void visitForEach(Tree.ForEach foreach) {
+		Tree.Block block = foreach.block;
+	
+		table.open(block.associatedScope);
+		foreach.range.accept(this);
+		if (foreach.autobound != null) {
+			if (!foreach.range.type.isArrayType()) {
+				if (!foreach.range.type.equal(BaseType.ERROR))
+					issueError(new BadArrOperArgError(foreach.range.getLocation()));
+				foreach.autobound.type = BaseType.ERROR;
+			}
+			else {		
+				foreach.autobound.type = ((ArrayType) foreach.range.type).getElementType();
+			}
+			Symbol sym = ((Tree.Ident) foreach.autobound).symbol;
+			table.getCurrentScope().cancel(sym);
+			Variable v = new Variable(sym.getName(), foreach.autobound.type, sym.getLocation());
+			((Tree.Ident) foreach.autobound).symbol = v;
+			table.declare(v);
+		
+		}
+		else {
+			if (!foreach.range.type.isArrayType()) {
+				if (!foreach.range.type.equal(BaseType.ERROR))
+				issueError(new BadArrOperArgError(foreach.range.getLocation()));
+			}
+			else {
+				Type type = ((ArrayType) foreach.range.type).getElementType();
+				if (!type.compatible(foreach.varbound.type.type))
+					issueError(new BadForeachTypeError(foreach.range.getLocation(), 
+							foreach.varbound.type.type.toString(), type.toString()));
+			}
+			
+		}
+		checkTestExpr(foreach.condition);
+		breaks.add(foreach);
+		if (block.block != null) 
+			for (Tree s: block.block)
+				s.accept(this);
+		breaks.pop();
+		table.close();
 	}
 	
 	@Override

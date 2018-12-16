@@ -1,6 +1,8 @@
 package decaf.typecheck;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 import decaf.Driver;
 import decaf.tree.Tree;
@@ -207,6 +209,28 @@ public class BuildSym extends Tree.Visitor {
 		table.close();
 	}
 
+	@Override
+	public void visitForEach(Tree.ForEach foreach) {
+		
+		if (foreach.action instanceof Tree.Block)
+			foreach.block = (Tree.Block) foreach.action;
+		else {
+			List<Tree> stmt = new ArrayList<Tree>();
+			stmt.add(foreach.action);
+			foreach.block = new Tree.Block(stmt, foreach.action.getLocation());
+		}
+		foreach.block.associatedScope = new LocalScope(foreach.block);
+		table.open(foreach.block.associatedScope);
+		if (foreach.autobound != null)
+			foreach.autobound.accept(this);
+		else 
+			foreach.varbound.accept(this);
+		if (foreach.block.block != null) 
+			for (Tree s: foreach.block.block)
+				s.accept(this);
+		table.close();
+	}
+	
 	// visiting types
 	@Override
 	public void visitTypeIdent(Tree.TypeIdent type) {
