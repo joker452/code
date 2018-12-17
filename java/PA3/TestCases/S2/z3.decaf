@@ -3,7 +3,7 @@
 class Main {
 
     static void main() {
-        new NQueues().init(8).solve();
+        new NQueues().init(2).solve();
     }
 }
 

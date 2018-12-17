@@ -1,1 +1,2 @@
-*** Error at (6,6): syntax error
+vm crash at (20,12), tac = _T4 = call _ReadInteger
+Caused by:

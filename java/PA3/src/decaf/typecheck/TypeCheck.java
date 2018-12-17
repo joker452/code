@@ -394,10 +394,11 @@ public class TypeCheck extends Tree.Visitor {
 			if (!dst.getType().compatible(scopy.from.type))
 				issueError(new BadScopySrcError(scopy.getLocation(), 
 						dst.getType().toString(), scopy.from.type.toString()));
+			else {
+				scopy.sym = ((ClassType) dst.getType()).getSymbol();
+				scopy.dst = (Variable) dst;
+			}
 		}
-		scopy.sym = ((ClassType) dst.getType()).getSymbol();
-		scopy.dst = (Variable) dst;
-	
 	}
 	
 	@Override

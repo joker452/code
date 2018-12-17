@@ -1,13 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# vim: ts=4 sw=4 expandtab:
-
-"""
-此脚本自动测试当前目录下所有 *.decaf 程序，输出到 output 目录下，
-并与 result 目录下的标准答案比较。
-
-请注意我们在判分时会有更多的测试用例。
-"""
 
 import os
 import subprocess
@@ -20,37 +12,30 @@ def read_txt_file(filename):
     txt = txt.replace('\r','')
     return txt
 
-def main():
-    decaf_jar = os.path.join('..', '..', 'result', 'decaf.jar')
+if __name__ == '__main__':
+    decaf_jar = os.path.join('..','..','result','decaf.jar')
     names = sys.argv[1:]
-    if not names:
+    if len(names) == 0:
         names = sorted(os.listdir('.'))
     for name in names:
         bname,ext = os.path.splitext(name)
         if ext != '.decaf':
             continue
-        if not os.path.isdir('output'):
-            os.mkdir('output')
-        # Run the test case, redirecting stdout/stderr to output/bname.result
-        subprocess.call(['java', '-jar', decaf_jar, '-l', '1', name],
-                stdout=open(os.path.join('output', bname + '.result'), 'w'),
-                stderr=subprocess.STDOUT)
-        # Check the result
-        expected = read_txt_file(os.path.join('result',bname+'.result'))
-        actual = read_txt_file(os.path.join('output',bname+'.result'))
-        if expected == actual:
-            info = 'OK :)'
-        else:
-            info = 'ERROR!'
-            print("actual\n", actual)
-            print("expected\n", expected)
-        print('{0:<20}{1}'.format(name,info))
+        # Run the test case, redirecting stdout/stderr to output/bname.tac
+        cmd = ['java', '-jar', decaf_jar, '-l', '2', name]
+        code = subprocess.call(cmd,
+                stdout = open(os.path.join('output',bname+'.tac'), 'w'),
+                stderr = subprocess.STDOUT)
+        fw = open(os.path.join('output',bname+'.result'), 'w')
+        if code == 0: # Run the TAC simulator
+            tac_jar = os.path.join('.', 'tac.jar')
+            subprocess.call(
+                    ['java', '-jar', tac_jar, os.path.join('output',bname+'.tac')],
+                    stdout = fw,
+                    stderr = subprocess.STDOUT)
     if os.name == 'nt':
-        print('Press Enter to continue...')
+        print ('Press Enter to continue...')
         try:
             raw_input() # Python 2
         except:
             input() # Python 3
-
-if __name__ == '__main__':
-    main()
