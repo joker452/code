@@ -1,5 +1,7 @@
 import os
 import sys
+from utils.test import test
+from utils.progressbar import PercentProgressBar
 from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, \
     QFileDialog, QLabel, QInputDialog
 from PyQt5.QtWidgets import QDesktopWidget, QMessageBox, QGraphicsView, \
@@ -30,6 +32,7 @@ class MainWindow(QMainWindow):
         self.border = 20
         self.imagefiles = []
         self.pixmap = self.filename = self.image = self.file = None
+        self.progressbar = PercentProgressBar(showFreeArea=True)
         self.resolution = QDesktopWidget().availableGeometry()
         self.geometry_w = self.resolution.width()
         self.geometry_h = self.resolution.height()
@@ -60,16 +63,19 @@ class MainWindow(QMainWindow):
         fileMenu.addAction(openAction)
         fileMenu.addAction(saveAction)
         fileMenu.addAction(saveasAction)
-
+    
+    def qbe(self):
+        pass
     def addToolbar(self):
         self.toolBar = self.addToolBar('Search')
         self.qbsAction = QAction(QIcon('./QBS.png'), 'qbs', self.toolBar)
         self.qbsAction.setStatusTip("query by string")
         self.qbsAction.setEnabled(False)
+        self.qbsAction.triggered.connect(self.qbs)
         self.qbeAction = QAction(QIcon('./QBE.png'), 'qbe', self.toolBar)
         self.qbeAction.setStatusTip("query by example")
         self.qbeAction.setEnabled(False)
-        self.qbsAction.triggered.connect(self.search)
+        self.qbeAction.triggered.connect(self.qbe)
         self.zoominAction = QAction(QIcon('./zoom-in.png'), 'zoom-in', self.toolBar)
         self.zoominAction.setStatusTip('zoom in')
         self.zoominAction.setEnabled(False)
@@ -82,6 +88,16 @@ class MainWindow(QMainWindow):
         self.toolBar.addAction(self.qbeAction)
         self.toolBar.addAction(self.zoominAction)
         self.toolBar.addAction(self.zoomoutAction)
+
+    def qbs(self):
+        text, ok = QInputDialog.getText(self, 'Input', "Enter")
+        if ok and text:
+            self.setCentralWidget(self.progressbar)
+            self.filename = test('qbs', text, self.filename, self.progressbar)
+            self.pixmap = QPixmap(self.filename)
+            self.pixmapitem.setPixmap(self.pixmap)
+            self.setCentralWidget(self.view)
+            self.modified = True
 
     def openFile(self):
         if self.checkSave():
@@ -134,8 +150,6 @@ class MainWindow(QMainWindow):
         self.view.verticalScrollBar().setValue(0)
         self.view.horizontalScrollBar().setValue(0)
 
-    def search(self):
-        text, ok = QInputDialog.getText(self, 'Input', "Enter")
 
     def movetoCenter(self):
         frame_geometry = self.frameGeometry()
@@ -152,7 +166,7 @@ class MainWindow(QMainWindow):
     def saveasFile(self):
         if self.pixmap:
             savefile, filter = QFileDialog.getSaveFileName(caption="Save as", directory='./no_title.jpeg',
-                                                       filter="JPEG (*.jpeg, *.jpg);;PNG (*.png);;BMP (*.bmp)")
+                                                           filter="JPEG (*.jpeg, *.jpg);;PNG (*.png);;BMP (*.bmp)")
             savefile = savefile.lower()
             if filter.startswith('JPEG'):
                 if not savefile.endswith('jpeg') and not savefile.endswith('jpg'):
