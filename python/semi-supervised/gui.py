@@ -1,3 +1,4 @@
+import os
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, \
     QFileDialog, QLabel, QInputDialog
@@ -26,6 +27,7 @@ class MainWindow(QMainWindow):
         self.view = self.scene = None
         self.zoom = 1
         self.border = 20
+        self.imagefiles = []
         self.pixmap = self.filename = self.image = self.file = None
         self.resolution = QDesktopWidget().availableGeometry()
         self.geometry_w = self.resolution.width()
@@ -86,29 +88,20 @@ class MainWindow(QMainWindow):
             self.filename, _ = QFileDialog.getOpenFileName(caption="Open an image",
                                                            filter="JPEG (*.jpeg *.jpg);;PNG (*.png)")
             if self.filename:
+                self.path, name = os.path.split(self.filename)
+                suffix = name.split('.')[1].lower()
+                self.imagefiles = [file for file in os.listdir(self.path) if file.lower().endswith(suffix)]
+                self.imagefiles.sort()
+                self.index = self.imagefiles.index(name)
                 self.setCentralWidget(self.label)
                 self.pixmap = QPixmap(self.filename)
                 self.scene = QGraphicsScene(self)
                 self.scene.addPixmap(self.pixmap)
                 self.view = QGraphicsView(self.scene, self)
-                self.view.setDragMode(QGraphicsView.ScrollHandDrag)
 
-                ratio_w = self.pixmap.width() / (self.geometry_w - self.border)
-                ratio_h = self.pixmap.height() / (self.geometry_h - self.border)
-                print(ratio_w, ratio_h, self.geometry_w, self.geometry_h, self.pixmap.size())
-                if ratio_w > 1:
-                    if ratio_h > 1:
-                        ratio = max(ratio_w, ratio_h)
-                        self.view.setTransform(QTransform().scale(1 / ratio, 1 / ratio))
-                        self.resize(self.pixmap.width() // ratio, self.pixmap.height() // ratio)
-                    else:
-                        self.view.setTransform(QTransform().scale(1 / ratio_w, 1 / ratio_w))
-                        self.resize(self.pixmap.width() // ratio_w, self.pixmap.height() // ratio_w)
-                elif ratio_h > 1:
-                    self.view.setTransform(QTransform().scale(1 / ratio_h, 1 / ratio_h))
-                    self.resize(self.pixmap.width() // ratio_h, self.pixmap.height() // ratio_h)
-                else:
-                    self.resize(self.pixmap.size())
+                self.view.setDragMode(QGraphicsView.ScrollHandDrag)
+                print(self.view.transform().isIdentity())
+                self.reset()
                 self.view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
                 self.view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
                 self.setCentralWidget(self.view)
@@ -117,6 +110,28 @@ class MainWindow(QMainWindow):
                 self.zoominAction.setEnabled(True)
                 self.zoomoutAction.setEnabled(True)
                 self.movetoCenter()
+
+    def reset(self):
+        ratio_w = self.pixmap.width() / (self.geometry_w - self.border)
+        ratio_h = self.pixmap.height() / (self.geometry_h - self.border)
+        print(ratio_w, ratio_h, self.geometry_w, self.geometry_h, self.pixmap.size())
+        if ratio_w > 1:
+            if ratio_h > 1:
+                ratio = max(ratio_w, ratio_h)
+                self.view.setTransform(QTransform().scale(1 / ratio, 1 / ratio))
+                self.resize(self.pixmap.width() // ratio, self.pixmap.height() // ratio)
+            else:
+                self.view.setTransform(QTransform().scale(1 / ratio_w, 1 / ratio_w))
+                self.resize(self.pixmap.width() // ratio_w, self.pixmap.height() // ratio_w)
+        elif ratio_h > 1:
+            self.view.setTransform(QTransform().scale(1 / ratio_h, 1 / ratio_h))
+            self.resize(self.pixmap.width() // ratio_h, self.pixmap.height() // ratio_h)
+        else:
+            self.view.resetTransform()
+            #self.view.resize(self.pixmap.size())
+            self.resize(self.pixmap.size())
+        self.view.verticalScrollBar().setValue(0)
+        self.view.horizontalScrollBar().setValue(0)
 
     def search(self):
         text, ok = QInputDialog.getText(self, 'Input', "Enter")
@@ -169,10 +184,15 @@ class MainWindow(QMainWindow):
         self.view.setTransform(QTransform().scale(self.zoom, self.zoom))
 
     def keyPressEvent(self, e):
-        if e.key() == QtCore.Qt.Key_W:
-            self.zoomIn()
-        elif e.key() == QtCore.Qt.Key_S:
-            self.zoomOut()
+        if self.imagefiles:
+            if e.key() == QtCore.Qt.Key_W:
+                self.zoomIn()
+            elif e.key() == QtCore.Qt.Key_S:
+                self.zoomOut()
+            elif e.key() == QtCore.Qt.Key_A:
+                self.browseDir(-1)
+            elif e.key() == QtCore.Qt.Key_D:
+                self.browseDir(1)
 
     def mouseDoubleClickEvent(self, e):
         if self.isFullScreen():
@@ -185,6 +205,17 @@ class MainWindow(QMainWindow):
             e.accept()
         else:
             e.ignore()
+
+    def browseDir(self, direction: int):
+        length = len(self.imagefiles)
+        if length > 1:
+            self.index = (self.index + direction + length) % length
+            self.pixmap = QPixmap(os.path.join(self.path, self.imagefiles[self.index]))
+            self.scene.clear()
+            self.scene.addPixmap(self.pixmap)
+            self.reset()
+            self.movetoCenter()
+
 
 
 if __name__ == '__main__':
