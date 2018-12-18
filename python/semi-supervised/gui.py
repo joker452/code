@@ -1,16 +1,17 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, \
     QFileDialog, QLabel, QInputDialog
-from PyQt5.QtWidgets import QDesktopWidget, QMessageBox
-from PyQt5.QtGui import QPixmap, QKeySequence, QIcon, QCloseEvent,\
-    QImage
-from PyQt5.QtCore import QFile, QIODevice, QBuffer,QByteArray, QSaveFile
+from PyQt5.QtWidgets import QDesktopWidget, QMessageBox, QGraphicsView, \
+    QGraphicsScene
+from PyQt5.QtGui import QPixmap, QKeySequence, QIcon, QCloseEvent, QTransform
+import PyQt5.QtCore as QtCore
 
 
 # TODO: zoom in, zoom out
 # TODO: savedialog from the qt website
 # TODO: better GUI, size policy
 # TODO: Qstylesheet, layout management on the qt website
+# TODO: load and save image in same bytes
 # TODO: make tidy code
 
 class MainWindow(QMainWindow):
@@ -18,18 +19,23 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super(QMainWindow, self).__init__()
         self.resize(400, 400)
-        # move the window to the center
-        self.movetoCenter()
-        self.statusBar().show()
         # add menu bar
         self.addMenu()
         # add toolbar
         self.addToolbar()
+        self.view = self.scene = None
+        self.zoom = 1
+        self.border = 20
         self.pixmap = self.filename = self.image = self.file = None
+        self.resolution = QDesktopWidget().availableGeometry()
+        self.geometry_w = self.resolution.width()
+        self.geometry_h = self.resolution.height()
         # for save prompt
         self.modified = False
         self.layout()
-        self.show()
+        self.statusBar().show()
+        # move the window to the center
+        self.movetoCenter()
 
     def addMenu(self):
         menuBar = self.menuBar()
@@ -37,12 +43,13 @@ class MainWindow(QMainWindow):
         fileMenu = menuBar.addMenu('&File')
         openAction = QAction('&Open', fileMenu)
         openAction.setShortcut(QKeySequence('Ctrl+O'))
-        openAction.setStatusTip('open an image file')
+        openAction.setStatusTip('open an image')
         saveAction = QAction('&Save', fileMenu)
         saveAction.setShortcut(QKeySequence('Ctrl+S'))
-        saveAction.setStatusTip('open an image file')
+        saveAction.setStatusTip('save an image')
         saveasAction = QAction('Save As', fileMenu)
-        saveAction.setShortcut(QKeySequence('Ctrl+A'))
+        saveasAction.setShortcut(QKeySequence('Ctrl+A'))
+        saveasAction.setStatusTip('save an image in the given format')
         openAction.triggered.connect(self.openFile)
         saveasAction.triggered.connect(self.saveasFile)
 
@@ -59,23 +66,56 @@ class MainWindow(QMainWindow):
         self.qbeAction.setStatusTip("query by example")
         self.qbeAction.setEnabled(False)
         self.qbsAction.triggered.connect(self.search)
+        self.zoominAction = QAction(QIcon('./zoom-in.png'), 'zoom-in', self.toolBar)
+        self.zoominAction.setStatusTip('zoom in')
+        self.zoominAction.setEnabled(False)
+        self.zoominAction.triggered.connect(self.zoomIn)
+        self.zoomoutAction = QAction(QIcon('./zoom-out.png'), 'zoom-out', self.toolBar)
+        self.zoomoutAction.setStatusTip('zoom out')
+        self.zoomoutAction.triggered.connect(self.zoomOut)
+        self.zoomoutAction.setEnabled(False)
         self.toolBar.addAction(self.qbsAction)
         self.toolBar.addAction(self.qbeAction)
+        self.toolBar.addAction(self.zoominAction)
+        self.toolBar.addAction(self.zoomoutAction)
 
     def openFile(self):
         if self.checkSave():
             self.label = QLabel(self)
             self.label.setScaledContents(True)
-            self.filename, _ = QFileDialog.getOpenFileName(caption="Open an image",                                                          filter="JPEG (*.jpeg *.jpg);;PNG (*.png)")
+            self.filename, _ = QFileDialog.getOpenFileName(caption="Open an image",
+                                                           filter="JPEG (*.jpeg *.jpg);;PNG (*.png)")
             if self.filename:
                 self.setCentralWidget(self.label)
                 self.pixmap = QPixmap(self.filename)
-                self.frameGeometry().size()
+                self.scene = QGraphicsScene(self)
+                self.scene.addPixmap(self.pixmap)
+                self.view = QGraphicsView(self.scene, self)
+                self.view.setDragMode(QGraphicsView.ScrollHandDrag)
 
-                self.resize(self.pixmap.size())
-                self.label.setPixmap(self.pixmap)
+                ratio_w = self.pixmap.width() / (self.geometry_w - self.border)
+                ratio_h = self.pixmap.height() / (self.geometry_h - self.border)
+                print(ratio_w, ratio_h, self.geometry_w, self.geometry_h, self.pixmap.size())
+                if ratio_w > 1:
+                    if ratio_h > 1:
+                        ratio = max(ratio_w, ratio_h)
+                        self.view.setTransform(QTransform().scale(1 / ratio, 1 / ratio))
+                        self.resize(self.pixmap.width() // ratio, self.pixmap.height() // ratio)
+                    else:
+                        self.view.setTransform(QTransform().scale(1 / ratio_w, 1 / ratio_w))
+                        self.resize(self.pixmap.width() // ratio_w, self.pixmap.height() // ratio_w)
+                elif ratio_h > 1:
+                    self.view.setTransform(QTransform().scale(1 / ratio_h, 1 / ratio_h))
+                    self.resize(self.pixmap.width() // ratio_h, self.pixmap.height() // ratio_h)
+                else:
+                    self.resize(self.pixmap.size())
+                self.view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+                self.view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+                self.setCentralWidget(self.view)
                 self.qbsAction.setEnabled(True)
                 self.qbeAction.setEnabled(True)
+                self.zoominAction.setEnabled(True)
+                self.zoomoutAction.setEnabled(True)
                 self.movetoCenter()
 
     def search(self):
@@ -83,8 +123,9 @@ class MainWindow(QMainWindow):
 
     def movetoCenter(self):
         frame_geometry = self.frameGeometry()
-        frame_geometry.moveCenter(QDesktopWidget().availableGeometry().center())
+        frame_geometry.moveCenter(self.resolution.center())
         self.move(frame_geometry.topLeft())
+        self.show()
 
     def saveFile(self, fileFormat='.png'):
         if self.pixmap.save(self.filename, fileFormat):
@@ -92,7 +133,7 @@ class MainWindow(QMainWindow):
 
     def saveasFile(self):
         savefile, filter = QFileDialog.getSaveFileName(caption="Save as", directory='./no_title.jpeg',
-                                               filter="JPEG (*.jpeg, *.jpg);;PNG (*.png);;BMP (*.bmp)")
+                                                       filter="JPEG (*.jpeg, *.jpg);;PNG (*.png);;BMP (*.bmp)")
         if self.pixmap:
             savefile = savefile.lower()
             if filter.startswith('JPEG'):
@@ -106,7 +147,6 @@ class MainWindow(QMainWindow):
                     savefile += '.bmp'
             self.pixmap.save(savefile, quality=100)
 
-
     def checkSave(self):
         if self.modified:
             reply = QMessageBox.warning(self, "Test",
@@ -119,6 +159,26 @@ class MainWindow(QMainWindow):
             elif reply == QMessageBox.Cancel:
                 return False
         return True
+
+    def zoomIn(self):
+        self.zoom *= 1.1
+        self.view.setTransform(QTransform().scale(self.zoom, self.zoom))
+
+    def zoomOut(self):
+        self.zoom /= 1.1
+        self.view.setTransform(QTransform().scale(self.zoom, self.zoom))
+
+    def keyPressEvent(self, e):
+        if e.key() == QtCore.Qt.Key_W:
+            self.zoomIn()
+        elif e.key() == QtCore.Qt.Key_S:
+            self.zoomOut()
+
+    def mouseDoubleClickEvent(self, e):
+        if self.isFullScreen():
+            self.showNormal()
+        else:
+            self.showFullScreen()
 
     def closeEvent(self, e: QCloseEvent):
         if self.checkSave():

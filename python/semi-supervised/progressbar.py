@@ -301,6 +301,7 @@ class Window(QWidget):
             self._value = 0
 
 
+
 if __name__ == '__main__':
     import sys
     import cgitb
