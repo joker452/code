@@ -4,7 +4,8 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, \
     QFileDialog, QLabel, QInputDialog
 from PyQt5.QtWidgets import QDesktopWidget, QMessageBox, QGraphicsView, \
     QGraphicsScene
-from PyQt5.QtGui import QPixmap, QKeySequence, QIcon, QCloseEvent, QTransform
+from PyQt5.QtGui import QPixmap, QKeySequence, QIcon, QCloseEvent, \
+    QTransform, QPainter, QColor
 import PyQt5.QtCore as QtCore
 
 
@@ -44,15 +45,16 @@ class MainWindow(QMainWindow):
         # '&' for underscore
         fileMenu = menuBar.addMenu('&File')
         openAction = QAction('&Open', fileMenu)
-        openAction.setShortcut(QKeySequence('Ctrl+O'))
+        openAction.setShortcut(QKeySequence.Open)
         openAction.setStatusTip('open an image')
         saveAction = QAction('&Save', fileMenu)
-        saveAction.setShortcut(QKeySequence('Ctrl+S'))
+        saveAction.setShortcut(QKeySequence.Save)
         saveAction.setStatusTip('save an image')
         saveasAction = QAction('Save As', fileMenu)
-        saveasAction.setShortcut(QKeySequence('Ctrl+A'))
+        saveasAction.setShortcut(QKeySequence.SelectAll)
         saveasAction.setStatusTip('save an image in the given format')
         openAction.triggered.connect(self.openFile)
+        saveAction.triggered.connect(self.saveFile)
         saveasAction.triggered.connect(self.saveasFile)
 
         fileMenu.addAction(openAction)
@@ -96,11 +98,10 @@ class MainWindow(QMainWindow):
                 self.setCentralWidget(self.label)
                 self.pixmap = QPixmap(self.filename)
                 self.scene = QGraphicsScene(self)
-                self.scene.addPixmap(self.pixmap)
+                self.pixmapitem = self.scene.addPixmap(self.pixmap)
                 self.view = QGraphicsView(self.scene, self)
 
                 self.view.setDragMode(QGraphicsView.ScrollHandDrag)
-                print(self.view.transform().isIdentity())
                 self.reset()
                 self.view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
                 self.view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -128,7 +129,7 @@ class MainWindow(QMainWindow):
             self.resize(self.pixmap.width() // ratio_h, self.pixmap.height() // ratio_h)
         else:
             self.view.resetTransform()
-            #self.view.resize(self.pixmap.size())
+            # self.view.resize(self.pixmap.size())
             self.resize(self.pixmap.size())
         self.view.verticalScrollBar().setValue(0)
         self.view.horizontalScrollBar().setValue(0)
@@ -143,13 +144,15 @@ class MainWindow(QMainWindow):
         self.show()
 
     def saveFile(self, fileFormat='.png'):
-        if self.pixmap.save(self.filename, fileFormat):
-            self.modified = False
+
+        if self.pixmap:
+            if self.pixmap.save(self.filename, quality=100):
+                self.modified = False
 
     def saveasFile(self):
-        savefile, filter = QFileDialog.getSaveFileName(caption="Save as", directory='./no_title.jpeg',
-                                                       filter="JPEG (*.jpeg, *.jpg);;PNG (*.png);;BMP (*.bmp)")
         if self.pixmap:
+            savefile, filter = QFileDialog.getSaveFileName(caption="Save as", directory='./no_title.jpeg',
+                                                       filter="JPEG (*.jpeg, *.jpg);;PNG (*.png);;BMP (*.bmp)")
             savefile = savefile.lower()
             if filter.startswith('JPEG'):
                 if not savefile.endswith('jpeg') and not savefile.endswith('jpg'):
@@ -173,6 +176,8 @@ class MainWindow(QMainWindow):
                 return self.saveFile()
             elif reply == QMessageBox.Cancel:
                 return False
+            else:
+                self.modified = False
         return True
 
     def zoomIn(self):
@@ -215,7 +220,6 @@ class MainWindow(QMainWindow):
             self.scene.addPixmap(self.pixmap)
             self.reset()
             self.movetoCenter()
-
 
 
 if __name__ == '__main__':
