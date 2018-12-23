@@ -69,10 +69,10 @@ def train():
     # load dataset
     logger.info('Loading dataset CASIA')
 
-    train_image_dir = "/home/dengbowen/character/images/train"
-    train_label_dir = "/home/dengbowen/character/labels/train"
-    test_image_dir = "/home/dengbowen/cmp/images"
-    test_label_dir = "/home/dengbowen/cmp/labels"
+    train_image_dir = "/mnt/data1/dengbowen/character/images/train"
+    train_label_dir = "/mnt/data1/dengbowen/character/labels/train"
+    test_image_dir = "/mnt/data1/dengbowen/cmp/images"
+    test_label_dir = "/mnt/data1/dengbowen/cmp/labels"
     label_files = ['./datasets/Char4037-list.txt', './datasets/Char3319-list.txt']
     char_class = 7356
     train_set = CASIA(train_image_dir, train_label_dir, label_files, char_class)
