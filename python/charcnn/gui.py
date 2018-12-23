@@ -40,6 +40,8 @@ class MainWindow(QMainWindow):
         self.layout()
         self.statusBar().show()
         # move the window to the center
+        self.setWindowIcon(QIcon('./gui/tsinghua.svg'))
+        self.setWindowTitle('Keyword spotting System')
         self.movetoCenter()
 
     def addMenu(self):
