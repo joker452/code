@@ -10,7 +10,10 @@ import java.util.Map;
 import decaf.tac.Functy;
 import decaf.tac.Tac;
 import decaf.tac.Tac.Kind;
-
+/**
+ * @author Deng
+ * FlowGraph for each Functy
+ */
 public class FlowGraph implements Iterable<BasicBlock> {
 
     private Functy functy;
@@ -21,18 +24,26 @@ public class FlowGraph implements Iterable<BasicBlock> {
         this.functy = func;
         deleteMemo(func);
         bbs = new ArrayList<BasicBlock>();
+        // mark all basic blocks in current Functy
         markBasicBlocks(func.head);
+        // construct FlowGraph
         gatherBasicBlocks(func.head);
+        // remove unreachable basic blocks
         simplify();
         for (BasicBlock bb : bbs) {
             bb.allocateTacIds();
         }
+        // liveness analysis at basic block level
         analyzeLiveness();
         for (BasicBlock bb : bbs) {
+        	// liveness analysis at Tac level
             bb.analyzeLiveness();
         }
     }
-
+    
+    /**
+     * remove Memo records. Memo is used only by TAC simulator
+     */
     private void deleteMemo(Functy func) {
         while (func.head != null && func.head.opc == Tac.Kind.MEMO) {
             func.head = func.head.next;

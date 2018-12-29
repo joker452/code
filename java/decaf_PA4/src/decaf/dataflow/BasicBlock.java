@@ -10,7 +10,7 @@ import decaf.tac.Tac;
 import decaf.tac.Temp;
 
 public class BasicBlock {
-    public int bbNum;
+    public int bbNum; // set by markBasicBlocks in FlowGraph
 
     public enum EndKind {
         BY_BRANCH, BY_BEQZ, BY_BNEZ, BY_RETURN
@@ -24,17 +24,17 @@ public class BasicBlock {
 
     public Tac tacList;
 
-    public Label label;
+    public Label label; // assembly code start number
 
     public Temp var;
 
-    public Register varReg;
+    public Register varReg; //register for exit statement
 
-    public int[] next;
+    public int[] next; // at most two
 
-    public boolean cancelled;
+    public boolean cancelled; // flag for dead block
 
-    public boolean mark;
+    public boolean mark; // flag for output assembly code
 
     public Set<Temp> def;
 
@@ -44,7 +44,7 @@ public class BasicBlock {
 
     public Set<Temp> liveOut;
 
-    public Set<Temp> saves;
+    public Set<Temp> saves; // variables in registers that must be saved  when leave
 
     private List<Asm> asms;
 
