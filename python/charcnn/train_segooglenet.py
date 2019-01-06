@@ -8,10 +8,9 @@ import argparse
 import torch.autograd
 import torch.cuda
 import torch.nn as nn
-import torch.optim
+import torch.optim as optim
 from datasets.casia_segooglenet import CASIA
 from torch.utils.data.dataloader import DataLoader
-from torch.optim.lr_scheduler import StepLR
 from models.SEgooglenet import SEGoogleNet
 from tensorboardX import SummaryWriter
 
@@ -32,6 +31,17 @@ def init_net(m):
         if m.bias is not None:
             nn.init.constant_(m.bias, 0)
 
+def poly_lr_scheduler(optimizer, init_lr, iter, max_iter=70000, power=0.5):
+    """Polynomial decay of learning rate
+        :param optimizer the optimizer used
+        :param init_lr is base learning rate
+        :param iter is a current iteration
+        :param max_iter is number of maximum iterations
+        :param power is a polymomial power
+    """
+    param_group = optimizer.param_groups[0]
+    param_group['lr'] = init_lr*(1 - iter/max_iter)**power
+    return optimizer
 
 def train():
     logger = logging.getLogger('CASIA-classifier::train')
@@ -75,8 +85,8 @@ def train():
     test_label_dir = "/data2/dengbowen/test/labels"
     label_files = './datasets/Chinese3755-list.txt'
     char_class = 3755
-    train_set = CASIA(train_image_dir, train_label_dir, label_files, char_class)
-    test_set = CASIA(test_image_dir, test_label_dir, label_files, char_class)
+    train_set = CASIA(train_image_dir, train_label_dir, label_files, char_class, False)
+    test_set = CASIA(test_image_dir, test_label_dir, label_files, char_class, True)
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=8, pin_memory=True)
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=8, pin_memory=True)
 
@@ -89,8 +99,7 @@ def train():
 
     # initialize network, optimizer, scheduler, loss and writer
     cnn = SEGoogleNet(char_class)
-    optimizer = torch.optim.SGD(cnn.parameters(), args.learning_rate, 0.9, weight_decay=0.0002)
-    scheduler = StepLR(optimizer, step_size=1, gamma=0.1)
+
     loss = nn.CrossEntropyLoss()
     model_name = cnn.get_class_name()
     writer = SummaryWriter(comment=datetime.datetime.now().strftime("%m-%d %H:%M:%S") + model_name)
@@ -108,6 +117,8 @@ def train():
     else:
         cnn.apply(init_net)
 
+    loss.to(device)
+    optimizer = optim.SGD(cnn.parameters(), args.learning_rate, 0.9, weight_decay=2e-4)
     # count parameters
     logger.info("{:s} has {} trainable parameters".format(model_name, count_parameter(cnn)))
     # run training
@@ -116,10 +127,9 @@ def train():
     iteration = 0
     threshold = 95.6
     for epoch in range(args.max_epoch):
-        scheduler.step()
+
         epoch_start = time.time()
         best_accuracy = 0.0
-        logger.info('Learning rate:{}'.format(optimizer.defaults['lr']))
         for batch_id, (image, label) in enumerate(train_loader):
             iteration += 1
             if (batch_id + 1) % args.display == 0:
@@ -137,19 +147,24 @@ def train():
             batch_start = time.time()
             image = image.to(device)
             label = label.to(device)
-            output = cnn(image)
+            output, _ = cnn(image)
             loss_val = loss(output, label)
             loss_val.backward()
             optimizer.step()
             optimizer.zero_grad()
             batch_end = time.time()
-            writer.add_scalar('loss', loss_val.item(), iteration)
             logger.info("batch{} loss: {} ".format(batch_id, loss_val.item()))
             logger.info("batch{} takes {:.2f}s".format(batch_id, batch_end - batch_start))
+            poly_lr_scheduler(optimizer, args.learning_rate, iteration)
+            writer.add_scalar('loss', loss_val.item(), iteration)
+            writer.add_scalar('lr', optimizer.param_groups[0]['lr'], iteration)
+
         epoch_end = time.time()
         logger.info("epoch{} takes {:2d}min {:.2f}s".format(epoch, int(epoch_end - epoch_start) // 60,
                                                             (epoch_end - epoch_start) % 60))
         logger.info('{:s} training finished'.format(model_name))
+        if iteration >= 60000:
+            break
 
 
 def evaluate_cnn(cnn, dataset_loader, device):
@@ -163,7 +178,7 @@ def evaluate_cnn(cnn, dataset_loader, device):
             total += label.size()[0]
             image = image.to(device)
             label = label.to(device).view(1, -1)
-            outputs = cnn(image)
+            outputs, _ = cnn(image)
             _, predicts = outputs.topk(k=5, dim=1)
             predicts = predicts.t()
             correct = predicts.eq(label.expand_as(predicts))
