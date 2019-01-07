@@ -10,6 +10,7 @@ import java.util.Map;
 import decaf.tac.Functy;
 import decaf.tac.Tac;
 import decaf.tac.Tac.Kind;
+
 /**
  * @author Deng
  * FlowGraph for each Functy
@@ -36,11 +37,11 @@ public class FlowGraph implements Iterable<BasicBlock> {
         // liveness analysis at basic block level
         analyzeLiveness();
         for (BasicBlock bb : bbs) {
-        	// liveness analysis at Tac level
+            // liveness analysis at Tac level
             bb.analyzeLiveness();
         }
     }
-    
+
     /**
      * remove Memo records. Memo is used only by TAC simulator
      */
@@ -77,6 +78,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
                     break;
                 case MARK:
                     if (!t.label.target) {
+                        // delete labels that are not targets
                         if (t.prev != null) {
                             t.prev.next = t.next;
                         } else {
@@ -86,6 +88,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
                             t.next.prev = t.prev;
                         }
                     } else {
+                        // if the instruction before the label isn't jump
                         if (!atStart) {
                             index++;
                             t.bbNum = index;
@@ -102,10 +105,10 @@ public class FlowGraph implements Iterable<BasicBlock> {
     }
 
     private void gatherBasicBlocks(Tac start) {
-        BasicBlock current = null;
-        Tac nextStart = null;
-        Tac end = null;
-
+        BasicBlock current;
+        Tac nextStart;
+        Tac end;
+        // the bbNum os the first block is always 0
         while (start != null && start.bbNum < 0) {
             start = start.next;
         }
@@ -115,7 +118,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
             while (start != null && start.opc == Tac.Kind.MARK) {
                 start = start.next;
             }
-
+            // empty block?
             if (start == null) {
                 current = new BasicBlock();
                 current.bbNum = bbNum;
@@ -139,6 +142,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
                         current.next[0] = current.next[1] = -1; // Special case.
                         end = end.prev;
                         break;
+                    // for branch, beqz, bnez, the label of the Tac is the target
                     case BRANCH:
                         current.endKind = BasicBlock.EndKind.BY_BRANCH;
                         current.next[0] = current.next[1] = end.label.where.bbNum;
@@ -154,6 +158,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
                         end = end.prev;
                         break;
                     default:
+                        // some special cases, such as dead block
                         if (nextStart == null) {
                             current.endKind = BasicBlock.EndKind.BY_RETURN;
                         } else {
@@ -232,11 +237,13 @@ public class FlowGraph implements Iterable<BasicBlock> {
                 continue;
             }
             BasicBlock trace = getBlock(bb.next[0]);
+            // skip dead blocks
             while (trace.cancelled) {
                 trace = getBlock(trace.next[0]);
             }
             bb.next[0] = trace.bbNum;
 
+            // skip dead blocks in false branch
             if (bb.endKind == BasicBlock.EndKind.BY_BEQZ
                     || bb.endKind == BasicBlock.EndKind.BY_BNEZ) {
                 trace = getBlock(bb.next[1]);
@@ -244,7 +251,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
                     trace = getBlock(trace.next[0]);
                 }
                 bb.next[1] = trace.bbNum;
-
+                // merge false and true branches
                 if (bb.next[0] == bb.next[1]) {
                     bb.endKind = BasicBlock.EndKind.BY_BRANCH;
                 }
@@ -253,6 +260,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
             }
         }
 
+        // set new bbNum for all Tacs
         Map<Integer, Integer> newBBNum = new HashMap<Integer, Integer>();
         int sz = 0;
         int i = 0;

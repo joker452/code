@@ -1,0 +1,14 @@
+class Stack {
+    int sp;
+    int[] elems;
+    int Pop() {
+        int val;
+        val = elems[sp - 1];
+        sp = sp - 1;
+        return val;
+    }
+}
+class Main {
+	static void main() {
+	}
+}

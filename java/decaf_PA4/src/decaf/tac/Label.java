@@ -5,6 +5,7 @@ public class Label {
 
 	public String name;
 
+	// true when the label is a target of a function call or branch
 	public boolean target;
 
 	public Tac where;
@@ -12,6 +13,7 @@ public class Label {
 	private static int labelCount = 0;
 
 	public Label() {
+
 	}
 
 	public Label(int id, String name, boolean target) {

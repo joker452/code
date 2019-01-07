@@ -10,7 +10,7 @@ import decaf.tac.Tac;
 import decaf.tac.Temp;
 
 public class BasicBlock {
-    public int bbNum; // set by markBasicBlocks in FlowGraph
+    public int bbNum; // set by gatherBasicBlocks in FlowGraph
 
     public enum EndKind {
         BY_BRANCH, BY_BEQZ, BY_BNEZ, BY_RETURN
@@ -20,13 +20,13 @@ public class BasicBlock {
 
     public int endId; // last TAC's id for this basic block
 
-    public int inDegree;
+    public int inDegree; // the sequence number of current block
 
     public Tac tacList;
 
     public Label label; // assembly code start number
 
-    public Temp var;
+    public Temp var; // variable for the exit statement
 
     public Register varReg; //register for exit statement
 
