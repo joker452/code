@@ -4,12 +4,12 @@ Resource records: (name, value, type, ttl), the meaning of name and value depend
 Use the command 'nslookup apigateway.cn-north-1.amazonaws.com.cn'.  
 Two IP addresses are returned: 54.223.20.220 and 54.223.77.30.  
 2. Run *nslookup* to determine the authoritative DNS servers for a university in Europe.  
-Use the command 'nslookup -type=NS www.cam.ac.uk'  
+Use the command 'nslookup -type=NS www<i></i>cam.ac.uk'  
 The response is as follows:   
 服务器:  dns-a.tsinghua.edu.cn  
 Address:  166.111.8.28  
 cam.ac.uk  
-        primary name server = ipreg.csi.cam.ac.uk  
+        primary name server = ipreg<i></i>csi.cam.ac.uk  
         responsible mail addr = hostmaster.cam.ac.uk  
         serial  = 1544405154  
         refresh = 1800 (30 mins)  
