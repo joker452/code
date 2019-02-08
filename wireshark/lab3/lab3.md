@@ -1,10 +1,12 @@
+# DNS
+# Important notes
 Three types of DNS server: root, TLD, and authoritative.  
 Resource records: (name, value, type, ttl), the meaning of name and value depend on type.  
 1. Run *nslookup* to obtain the IP address of a Web server in Asia. What is the IP address of that server?  
 Use the command 'nslookup apigateway.cn-north-1.amazonaws.com.cn'.  
 Two IP addresses are returned: 54.223.20.220 and 54.223.77.30.  
 2. Run *nslookup* to determine the authoritative DNS servers for a university in Europe.  
-Use the command 'nslookup -type=NS www.cam.ac.uk'  
+Use the command 'nslookup -type=NS www<nolink>.cam.ac.uk'  
 The response is as follows:   
 服务器:  dns-a.tsinghua.edu.cn  
 Address:  166.111.8.28  
@@ -29,9 +31,9 @@ It's a type A DNS query. No, the field 'number of answer RRS' is 0.
 8. Examine the DNS response message. How many "answers" are provided? What do each of these answers contain?  
 Three. 
 The content is as follows:  
-www.ietf.org: type CNAME, class IN, cname www.ietf.org.cdn.cloudflare.net  
-www.ietf.org.cdn.cloudflare.net: type A, class IN, addr 104.20.1.85  
-www.ietf.org.cdn.cloudflare.net: type A, class IN, addr 104.20.0.85  
+www<nolink>.ietf.org: type CNAME, class IN, cname www<nolink>.ietf.org.cdn.cloudflare.net  
+www<nolink>.ietf.org.cdn.cloudflare.net: type A, class IN, addr 104.20.1.85  
+www<nolink>.ietf.org.cdn.cloudflare.net: type A, class IN, addr 104.20.0.85  
 9. Consider the subsequent TCP SYN packet sent by your host. Does the destination IP address of the SYN packet correspond to any of the IP addresses provided in the DNS response message?  
 Yes, the destination IP address is 104.20.1.85.  
 10. This web page contain images. Before retrieving each image, does your host issue new DNS queries?  
@@ -43,9 +45,9 @@ Both are 53.
 13. Examine the DNS query message. What "Type" of DNS query is it? Does the query message contain any "answers"?  
 Type A. No.  
 14. Examine the DNS response message. How many "answers" are provided? What do each of these answers contain?  
-3.  
-www.mit.edu: type CNAME, class IN, cname www.mit.edu.edgekey.net  
-www.mit.edu.edgekey.net: type CNAME, class IN, cname e9566.dscb.akamaiedge.net  
+Three.  
+www<nolink>.mit.edu: type CNAME, class IN, cname www<nolink>.mit.edu.edgekey.net  
+www<nolink>.mit.edu.edgekey.net: type CNAME, class IN, cname e9566.dscb.akamaiedge.net  
 e9566.dscb.akamaiedge.net: type A, class IN, addr 23.213.32.34  
 16. To what IP address is the DNS query message sent? Is this the IP address of your default local DNS server?
 166.111.8.28. Yes.  
@@ -56,7 +58,7 @@ asia2.akam.net, use2.akam.net, use5.akam.net, ns1-173.akam.net, ns1-37.akam.net,
 Yes, it also provides the IPv4 addresses of these 8 nameservers in the Additional informatio section, and IPv6 addresses of 3 servers among them.  
 20. To what IP address is the DNS query message sent? Is this the IP address of your default local DNS server? If not, what does the IP address correspond to?  
 It first sends two DNS query messages to get the IPv4 and IPv6 address of bitsy.mit.edu, which the DNS server in this case.  
-Then it sends DNS query to 18.72.0.3 (the IP address it got just now) to get the corresponding IP address of the hostname www.aiit.or.kr.  
+Then it sends DNS query to 18.72.0.3 (the IP address it got just now) to get the corresponding IP address of the hostname www<nolink>.aiit.or.kr.  
 21. Examine the DNS query message. What "Type" of DNS query is it? Does the query message contain any "answers"?
 Type A. No.  
 22. Examine the DNS response message. How many "answers" are provided? What do each of these answers contain?

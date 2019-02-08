@@ -1,3 +1,4 @@
+# TCP
 1. What is the IP address and TCP port number used by the client computer (source) that is transferring the file to gaia.cs.umass.edu? To answer this question, it's probably easiest to select an HTTP message and explore the details of the TCP packet used to carry this HTTP message, using the "details of the selected packet header window".  
 IP address: 192.168.1.102.  
 TCP port number: 1161.  

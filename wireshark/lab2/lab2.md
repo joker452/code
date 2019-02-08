@@ -15,6 +15,7 @@ A Web cache, also called a proxy server -- is a network entity that satisfies HT
 Typically a Web cache is purchased and installed by an ISP.  
 Web cache can reduce traffic on an institution's access link to the Internet, and Web traffic in the Internet as a whole.  
 An HTTP request message is a so-called conditional GET message if the request message uses the GET method and the request message includes an If-Modified-Since header line.  
+
 1. Is your browser running HTTP version 1.0 or 1.1?  What version of HTTP is the server running?  
 1.1, 1.1.  
 2. What languages (if any) does your browser indicate that it can accept to the server?  

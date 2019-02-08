@@ -14,7 +14,7 @@ The length field is 2 bytes, which means the maximum length of UDP header plus i
 7. Examine a pair of UDP packets in which your host sends the first UDP packet and the second UDP packet is a reply to this first UDP packet. Describe the relationship between the port numbers in the two packets.  
 It's a pair of MDNS packets.  
 Port numbers in the order of sender and receiver:  
-	1. 5353, 5353.  
-	2. 5353, 5353.  
+1\. 5353, 5353.  
+2\. 5353, 5353.  
 They should be in reverse order, but as they are the same in this special case, there is no difference.  
  
