@@ -23,11 +23,11 @@ English in US style is indicated with a priority of 1.0, and English with a prio
 3. What is the IP address of your computer?  Of the gaia.cs.umass.edu server?  
 192.168.1.102, 128.119.245.12.  
 4. What is the status code returned from the server to your browser?  
-200.  
+200\.  
 5. When was the HTML file that you are retrieving last modified at the server?  
 Tue, 23 Sep 2003 05:29:00 GMT.    
 6. How many bytes of content are being returned to your browser?  
-73.  
+73\.  
 7. By inspecting the raw data in the packet content window, do you see any headers within the data that are not displayed in the packet-listing window?  If so, name one.  
 No.   
 8. Inspect the contents of the first HTTP GET request from your browser to the server. Do you see an "IF-MODIFIED-SINCE" line in the HTTP GET?  
@@ -41,13 +41,13 @@ No. The status code is  304, which means the file cached by the browser doesn't 
 12. How many HTTP GET request messages did your browser send?  Which packet number in the trace contains the GET message for the Bill or Rights?  
 One. 2311.  
 13. Which packet number in the trace contains the status code and phrase associated with the response to the HTTP GET request?
-2311.  
+2311\.  
 14. What is the status code and phrase in the response?  
-200/. OK.    
+200\. OK.    
 15. How many data-containing TCP segments were needed to carry the single HTTP response and the text of the Bill of Rights?  
-4/.    
+4\.    
 16. How many HTTP GET request messages did your browser send? To which Internet addresses were these GET requests sent?  
-3/.  128.119.245.12.    
+3\.  128.119.245.12.    
 17. Can you tell whether your browser downloaded the two images serially, or whether they were downloaded from the two web sites in parallel?  Explain.  
 In parallel. The data header in the response is same for the two HTTP messages.  
 18. What is the server's response (status code and phrase) in response to the initial HTTP GET message from your browser?  
