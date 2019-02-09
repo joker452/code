@@ -1,4 +1,8 @@
 # ICMP  
+## Important notes
+All ICMP packets have an 8-byte header and variable-sized data section. The first 4 bytes of the header have fixed format, while the last 4 bytes depend on the type and code of that ICMP packet.  
+ICMP error messages contain a data section that includes a copy of the entire IPv4 header, plus at least the first eight bytes of data from the IPv4 packet that caused the error message.  
+The maximum length of ICMP error messages is 576 bytes.   
 ![](./ping.png)  
 1. What is the IP address of your host? What is the IP address of the destination host?  
 192.168.0.124, 121.33.253.67.  
