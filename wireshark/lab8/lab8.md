@@ -1,6 +1,6 @@
 # Ethernet and ARP
 1. What is the 48-bit Ethernet address of your computer?  
-f0:6e:0b:cd:f1:cb.  
+f0:6e:0b:cd :f1:cb.  
 2. What is the 48-bit destination address in the Ethernet frame? Is this Ethernet address of gaia.cs.umass.edu? What device has this as its Ethernet address?  
 fc:d7:33:34:3b:9a.  
 No.  
@@ -14,7 +14,7 @@ fc:d7:33:34:3b:9a.
 Neither.  
 The gateway of my computer.  
 6. What is the destination address in the Ethernet frame? Is this the Ethernet address of your computer?  
-f0:6e:0b:cd:f1:cb.  
+f0:6e:0b:cd :f1:cb.  
 Yes.  
 7. Give the hexadecimal value for the two-byte Frame type field. What upper layer protocol does this correspond to?  
 0x0800.  
