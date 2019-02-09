@@ -20,17 +20,17 @@ public class BasicBlock {
 
     public int endId; // last TAC's id for this basic block
 
-    public int inDegree; // the sequence number of current block
+    public int inDegree; // the number of basic blocks that can reach this basic block
 
-    public Tac tacList;
+    public Tac tacList; // the head of the tacs of the block
 
     public Label label; // assembly code start number
 
-    public Temp var; // variable for the exit statement
+    public Temp var; // target operand for the exit statement
 
     public Register varReg; //register for exit statement
 
-    public int[] next; // at most two
+    public int[] next; // at most two, next bbNum
 
     public boolean cancelled; // flag for dead block
 
@@ -46,11 +46,11 @@ public class BasicBlock {
 
     public Set<Temp> saves; // variables in registers that must be saved  when leave
 
-    private List<Asm> asms;
+    private List<Asm> asms; // assembly instructiosn for this basic block
 
     /**
      * DUChain.
-     *
+     * <p>
      * 表中的每一项 `Pair(p, A) -> ds` 表示 变量 `A` 在定值点 `p` 的 DU 链为 `ds`.
      * 这里 `p` 和 `ds` 中的每一项均指的定值点或引用点对应的那一条 TAC 的 `id`.
      */
@@ -90,7 +90,7 @@ public class BasicBlock {
                 case NEQ:
                 case LEQ:
                 case LES:
-                /* use op1 and op2, def op0 */
+                    /* use op1 and op2, def op0 */
                     if (tac.op1.lastVisitedBB != bbNum) {
                         liveUse.add(tac.op1);
                         tac.op1.lastVisitedBB = bbNum;
@@ -109,7 +109,7 @@ public class BasicBlock {
                 case ASSIGN:
                 case INDIRECT_CALL:
                 case LOAD:
-				/* use op1, def op0 */
+                    /* use op1, def op0 */
                     if (tac.op1.lastVisitedBB != bbNum) {
                         liveUse.add(tac.op1);
                         tac.op1.lastVisitedBB = bbNum;
@@ -125,7 +125,7 @@ public class BasicBlock {
                 case RETURN:
                 case LOAD_STR_CONST:
                 case LOAD_IMM4:
-				/* def op0 */
+                    /* def op0 */
                     if (tac.op0 != null && tac.op0.lastVisitedBB != bbNum) {  // in DIRECT_CALL with return type VOID,
                         // tac.op0 is null
                         def.add(tac.op0);
@@ -133,7 +133,7 @@ public class BasicBlock {
                     }
                     break;
                 case STORE:
-				/* use op0 and op1*/
+                    /* use op0 and op1*/
                     if (tac.op0.lastVisitedBB != bbNum) {
                         liveUse.add(tac.op0);
                         tac.op0.lastVisitedBB = bbNum;
@@ -144,14 +144,14 @@ public class BasicBlock {
                     }
                     break;
                 case PARM:
-				/* use op0 */
+                    /* use op0 */
                     if (tac.op0.lastVisitedBB != bbNum) {
                         liveUse.add(tac.op0);
                         tac.op0.lastVisitedBB = bbNum;
                     }
                     break;
                 default:
-				/* BRANCH MEMO MARK PARM*/
+                    /* BRANCH MEMO MARK PARM*/
                     break;
             }
         }
@@ -166,12 +166,14 @@ public class BasicBlock {
         if (tacList == null)
             return;
         Tac tac = tacList;
+        // stop at the end
         for (; tac.next != null; tac = tac.next) ;
 
         tac.liveOut = new HashSet<Temp>(liveOut);
         if (var != null)
             tac.liveOut.add(var);
         for (; tac != tacList; tac = tac.prev) {
+            // let LiveIn equal LiveOut, then remove Def and add LiveUse
             tac.prev.liveOut = new HashSet<Temp>(tac.liveOut);
             switch (tac.opc) {
                 case ADD:
@@ -187,7 +189,7 @@ public class BasicBlock {
                 case NEQ:
                 case LEQ:
                 case LES:
-				/* use op1 and op2, def op0 */
+                    /* use op1 and op2, def op0 */
                     tac.prev.liveOut.remove(tac.op0);
                     tac.prev.liveOut.add(tac.op1);
                     tac.prev.liveOut.add(tac.op2);
@@ -197,7 +199,7 @@ public class BasicBlock {
                 case ASSIGN:
                 case INDIRECT_CALL:
                 case LOAD:
-				/* use op1, def op0 */
+                    /* use op1, def op0 */
                     tac.prev.liveOut.remove(tac.op0);
                     tac.prev.liveOut.add(tac.op1);
                     break;
@@ -206,32 +208,28 @@ public class BasicBlock {
                 case RETURN:
                 case LOAD_STR_CONST:
                 case LOAD_IMM4:
-				/* def op0 */
+                    /* def op0 */
                     tac.prev.liveOut.remove(tac.op0);
                     break;
                 case STORE:
-				/* use op0 and op1*/
+                    /* use op0 and op1*/
                     tac.prev.liveOut.add(tac.op0);
                     tac.prev.liveOut.add(tac.op1);
                     break;
                 case BEQZ:
                 case BNEZ:
                 case PARM:
-				/* use op0 */
+                    /* use op0 */
                     tac.prev.liveOut.add(tac.op0);
                     break;
                 default:
-				/* BRANCH MEMO MARK PARM*/
+                    /* BRANCH MEMO MARK PARM*/
                     break;
             }
         }
     }
 
-    public void printTo(PrintWriter pw) {
-        pw.println("BASIC BLOCK " + bbNum + " : ");
-        for (Tac t = tacList; t != null; t = t.next) {
-            pw.println("    " + t);
-        }
+    private void printEnd(PrintWriter pw) {
         switch (endKind) {
             case BY_BRANCH:
                 pw.println("END BY BRANCH, goto " + next[0]);
@@ -252,6 +250,14 @@ public class BasicBlock {
                 }
                 break;
         }
+    }
+
+    public void printTo(PrintWriter pw) {
+        pw.println("BASIC BLOCK " + bbNum + " : ");
+        for (Tac t = tacList; t != null; t = t.next) {
+            pw.println("    " + t);
+        }
+        printEnd(pw);
     }
 
     public void printLivenessTo(PrintWriter pw) {
@@ -264,27 +270,7 @@ public class BasicBlock {
         for (Tac t = tacList; t != null; t = t.next) {
             pw.println("    " + t + " " + toString(t.liveOut));
         }
-
-        switch (endKind) {
-            case BY_BRANCH:
-                pw.println("END BY BRANCH, goto " + next[0]);
-                break;
-            case BY_BEQZ:
-                pw.println("END BY BEQZ, if " + var.name + " = ");
-                pw.println("    0 : goto " + next[0] + "; 1 : goto " + next[1]);
-                break;
-            case BY_BNEZ:
-                pw.println("END BY BGTZ, if " + var.name + " = ");
-                pw.println("    1 : goto " + next[0] + "; 0 : goto " + next[1]);
-                break;
-            case BY_RETURN:
-                if (var != null) {
-                    pw.println("END BY RETURN, result = " + var.name);
-                } else {
-                    pw.println("END BY RETURN, void result");
-                }
-                break;
-        }
+        printEnd(pw);
     }
 
     public void printDUChainTo(PrintWriter pw) {
@@ -328,7 +314,7 @@ public class BasicBlock {
                 case PARM:
                     break;
                 default:
-				/* BRANCH MEMO MARK PARM */
+                    /* BRANCH MEMO MARK PARM */
                     break;
             }
 
@@ -336,12 +322,10 @@ public class BasicBlock {
                 pw.println();
             } else {
                 pw.print(" [ ");
-                if (pair != null) {
-                    Set<Integer> locations = DUChain.get(pair);
-                    if (locations != null) {
-                        for (Integer loc : locations) {
-                            pw.print(loc + " ");
-                        }
+                Set<Integer> locations = DUChain.get(pair);
+                if (locations != null) {
+                    for (Integer loc : locations) {
+                        pw.print(loc + " ");
                     }
                 }
                 pw.println("]");
@@ -349,6 +333,7 @@ public class BasicBlock {
         }
 
         pw.print(endId + "\t");
+
         switch (endKind) {
             case BY_BRANCH:
                 pw.println("END BY BRANCH, goto " + next[0]);
