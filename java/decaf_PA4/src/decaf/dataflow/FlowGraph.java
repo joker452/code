@@ -5,10 +5,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.Map;
 
 import decaf.tac.Functy;
 import decaf.tac.Tac;
+import decaf.tac.Temp;
 import decaf.tac.Tac.Kind;
 
 /**
@@ -202,10 +205,40 @@ public class FlowGraph implements Iterable<BasicBlock> {
 
     }
 
+    public void computedefDU(BasicBlock bb, BasicBlock next, Set<Temp> copyDef) {
+        ++next.visited;
+        for (Temp temp: next.liveUse) {
+            if (copyDef.contains(temp)) {
+                for (Pair pair : next.liveUseDU)
+                    if (pair.tmp == temp)
+                        bb.defDU.add(pair);
+            }
+        }
+        copyDef.removeAll(next.def);
+        for (int i = 0; i < 2; ++i) {
+            if (!copyDef.isEmpty() && next.next[i] >= 0) {
+                Set<Temp> copy = new TreeSet<Temp>(Temp.ID_COMPARATOR);
+                copy.addAll(copyDef);
+                if (bbs.get(next.next[i]).visited < 2)
+                    computedefDU(bb, bbs.get(next.next[i]), copy);
+            }
+        }
+    }
     public void analyzeLiveness() {
-        for (BasicBlock bb : bbs) {
+        for (BasicBlock bb: bbs) {
             // also initialize liveIn to liveUse
             bb.computeDefAndLiveUse();
+        }
+        for (BasicBlock bb: bbs) {
+            for (BasicBlock b: bbs)
+                b.visited = 0;
+            for (int i = 0; i < 2; ++i) {
+                if (bb.next[i] >= 0) {
+                    Set<Temp> copyDef = new TreeSet<Temp>(Temp.ID_COMPARATOR);
+                    copyDef.addAll(bb.def);
+                    computedefDU(bb, bbs.get(bb.next[i]), copyDef);
+                }
+            }
         }
         boolean changed;
         do {

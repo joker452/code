@@ -36,13 +36,23 @@ public class BasicBlock {
 
     public boolean mark; // flag for output assembly code
 
+    public int visited = 0;
+
     public Set<Temp> def;
+
+    public Set<Pair> defDU;
 
     public Set<Temp> liveUse;
 
+    public Set<Pair> liveUseDU;
+
     public Set<Temp> liveIn;
 
+    public Set<Pair> liveInDU;
+
     public Set<Temp> liveOut;
+
+    public Set<Pair> liveOutDU;
 
     public Set<Temp> saves; // variables in registers that must be saved  when leave
 
@@ -58,9 +68,13 @@ public class BasicBlock {
 
     public BasicBlock() {
         def = new TreeSet<Temp>(Temp.ID_COMPARATOR);
+        defDU = new TreeSet<Pair>(Pair.COMPARATOR);
         liveUse = new TreeSet<Temp>(Temp.ID_COMPARATOR);
+        liveUseDU = new TreeSet<Pair>(Pair.COMPARATOR);
         liveIn = new TreeSet<Temp>(Temp.ID_COMPARATOR);
+        liveInDU = new TreeSet<Pair>(Pair.COMPARATOR);
         liveOut = new TreeSet<Temp>(Temp.ID_COMPARATOR);
+        liveOutDU = new TreeSet<Pair>(Pair.COMPARATOR);
         next = new int[2];
         asms = new ArrayList<Asm>();
 
@@ -95,10 +109,18 @@ public class BasicBlock {
                         liveUse.add(tac.op1);
                         tac.op1.lastVisitedBB = bbNum;
                     }
+
+                    if (!def.contains(tac.op1))
+                        liveUseDU.add(new Pair(tac.id, tac.op1));
+
                     if (tac.op2.lastVisitedBB != bbNum) {
                         liveUse.add(tac.op2);
                         tac.op2.lastVisitedBB = bbNum;
                     }
+
+                    if (!def.contains(tac.op2))
+                        liveUseDU.add(new Pair(tac.id, tac.op2));
+
                     if (tac.op0.lastVisitedBB != bbNum) {
                         def.add(tac.op0);
                         tac.op0.lastVisitedBB = bbNum;
@@ -114,6 +136,10 @@ public class BasicBlock {
                         liveUse.add(tac.op1);
                         tac.op1.lastVisitedBB = bbNum;
                     }
+
+                    if (!def.contains(tac.op1))
+                        liveUseDU.add(new Pair(tac.id, tac.op1));
+
                     if (tac.op0 != null && tac.op0.lastVisitedBB != bbNum) {  // in INDIRECT_CALL with return type VOID,
                         // tac.op0 is null
                         def.add(tac.op0);
@@ -138,10 +164,17 @@ public class BasicBlock {
                         liveUse.add(tac.op0);
                         tac.op0.lastVisitedBB = bbNum;
                     }
+
+                    if (!def.contains(tac.op0))
+                        liveUseDU.add(new Pair(tac.id, tac.op0));
+
                     if (tac.op1.lastVisitedBB != bbNum) {
                         liveUse.add(tac.op1);
                         tac.op1.lastVisitedBB = bbNum;
                     }
+
+                    if (!def.contains(tac.op1))
+                        liveUseDU.add(new Pair(tac.id, tac.op1));
                     break;
                 case PARM:
                     /* use op0 */
@@ -149,6 +182,9 @@ public class BasicBlock {
                         liveUse.add(tac.op0);
                         tac.op0.lastVisitedBB = bbNum;
                     }
+
+                    if (!def.contains(tac.op0))
+                        liveUseDU.add(new Pair(tac.id, tac.op0));
                     break;
                 default:
                     /* BRANCH MEMO MARK PARM*/
@@ -159,6 +195,8 @@ public class BasicBlock {
             liveUse.add(var);
             var.lastVisitedBB = bbNum;
         }
+        if (var != null && !def.contains(var))
+            liveUseDU.add(new Pair(endId, var));
         liveIn.addAll(liveUse);
     }
 
@@ -263,12 +301,14 @@ public class BasicBlock {
     public void printLivenessTo(PrintWriter pw) {
         pw.println("BASIC BLOCK " + bbNum + " : ");
         pw.println("  Def     = " + toString(def));
+        pw.println("  defDU   = " + printPair(defDU));
+        pw.println("  liveUseDU = " + printPair(liveUseDU));
         pw.println("  liveUse = " + toString(liveUse));
         pw.println("  liveIn  = " + toString(liveIn));
         pw.println("  liveOut = " + toString(liveOut));
 
         for (Tac t = tacList; t != null; t = t.next) {
-            pw.println("    " + t + " " + toString(t.liveOut));
+            pw.println("    " + t.id + " " + t + " " + toString(t.liveOut));
         }
         printEnd(pw);
     }
@@ -360,6 +400,16 @@ public class BasicBlock {
         StringBuilder sb = new StringBuilder("[ ");
         for (Temp t : set) {
             sb.append(t.name + " ");
+        }
+        sb.append(']');
+        return sb.toString();
+    }
+
+    // debug print function
+    public String printPair(Set<Pair> set) {
+        StringBuilder sb = new StringBuilder("[ ");
+        for (Pair p : set) {
+            sb.append(p.toString() + " ");
         }
         sb.append(']');
         return sb.toString();
