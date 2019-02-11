@@ -49,6 +49,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
         for (BasicBlock bb : bbs) {
             // liveness analysis at Tac level
             bb.analyzeLiveness();
+            bb.resolveDUChain();
         }
     }
 
@@ -136,6 +137,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
                 current.bbNum = bbNum;
                 current.tacList = null;
                 current.endKind = BasicBlock.EndKind.BY_RETURN;
+                current.next[0] = current.next[1] = -1;
                 nextStart = null;
             } else {
                 start.prev = null;
@@ -202,7 +204,37 @@ public class FlowGraph implements Iterable<BasicBlock> {
     }
 
     public void resolveDUChain() {
+        for (BasicBlock bb: bbs) {
+            for (BasicBlock b: bbs)
+                b.visited = 0;
+            for (int i = 0; i < 2; ++i) {
+                if (bb.next[i] >= 0) {
+                    Set<Temp> copyDef = new TreeSet<Temp>(Temp.ID_COMPARATOR);
+                    copyDef.addAll(bb.redef);
+                    computedefDU(bb, bbs.get(bb.next[i]), copyDef);
+                }
+            }
+        }
 
+        boolean changed;
+        do {
+            changed = false;
+            for (BasicBlock bb : bbs) {
+                for (int i = 0; i < 2; i++) {
+                    if (bb.next[i] >= 0) {
+                        bb.liveOutDU.addAll(bbs.get(bb.next[i]).liveInDU);
+                    }
+                }
+                bb.liveOutDU.removeAll(bb.defDU);
+                if (bb.liveInDU.addAll(bb.liveOutDU))
+                    changed = true;
+                for (int i = 0; i < 2; i++) {
+                    if (bb.next[i] >= 0) {
+                        bb.liveOutDU.addAll(bbs.get(bb.next[i]).liveInDU);
+                    }
+                }
+            }
+        } while (changed);
     }
 
     public void computedefDU(BasicBlock bb, BasicBlock next, Set<Temp> copyDef) {
@@ -214,7 +246,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
                         bb.defDU.add(pair);
             }
         }
-        copyDef.removeAll(next.def);
+        copyDef.removeAll(next.redef);
         for (int i = 0; i < 2; ++i) {
             if (!copyDef.isEmpty() && next.next[i] >= 0) {
                 Set<Temp> copy = new TreeSet<Temp>(Temp.ID_COMPARATOR);
@@ -228,17 +260,6 @@ public class FlowGraph implements Iterable<BasicBlock> {
         for (BasicBlock bb: bbs) {
             // also initialize liveIn to liveUse
             bb.computeDefAndLiveUse();
-        }
-        for (BasicBlock bb: bbs) {
-            for (BasicBlock b: bbs)
-                b.visited = 0;
-            for (int i = 0; i < 2; ++i) {
-                if (bb.next[i] >= 0) {
-                    Set<Temp> copyDef = new TreeSet<Temp>(Temp.ID_COMPARATOR);
-                    copyDef.addAll(bb.def);
-                    computedefDU(bb, bbs.get(bb.next[i]), copyDef);
-                }
-            }
         }
         boolean changed;
         do {

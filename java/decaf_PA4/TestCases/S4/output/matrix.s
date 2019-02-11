@@ -1110,12 +1110,9 @@ _L177:
           sw    $t0, 4($sp)             
           lw    $t1, 16($fp)            
           sw    $t1, 8($sp)             
-          lw    $t2, 0($t0)             
-          lw    $t0, 24($t2)            
-          sw    $t1, 16($fp)            
+          lw    $t1, 0($t0)             
+          lw    $t0, 24($t1)            
           jalr  $t0                     
-          lw    $t1, 16($fp)            
-          sw    $t1, 16($fp)            
 _L185:                                  
           move  $sp, $fp                
           lw    $ra, -4($fp)            
@@ -1157,31 +1154,24 @@ _L181:
           sw    $t2, 4($sp)             
           lw    $t3, 16($fp)            
           sw    $t3, 8($sp)             
-          lw    $t4, 12($fp)            
-          sw    $t4, 12($sp)            
+          lw    $t3, 12($fp)            
+          sw    $t3, 12($sp)            
           sw    $t0, 16($sp)            
           lw    $t0, 0($t2)             
-          lw    $t5, 8($t0)             
+          lw    $t3, 8($t0)             
           sw    $t1, 8($fp)             
-          sw    $t4, 12($fp)            
           sw    $t2, -8($fp)            
-          sw    $t3, 16($fp)            
-          jalr  $t5                     
+          jalr  $t3                     
           lw    $t1, 8($fp)             
-          lw    $t4, 12($fp)            
           lw    $t2, -8($fp)            
-          lw    $t3, 16($fp)            
           lw    $t0, 4($fp)             
-          lw    $t5, 4($t0)             
-          lw    $t6, -4($t5)            
-          slt   $t7, $t1, $t6           
+          lw    $t3, 4($t0)             
+          lw    $t0, -4($t3)            
+          slt   $t4, $t1, $t0           
           sw    $t1, 8($fp)             
-          sw    $t4, 12($fp)            
           sw    $t2, -8($fp)            
-          sw    $t3, 16($fp)            
-          sw    $t5, -16($fp)           
-          sw    $t0, 4($fp)             
-          beqz  $t7, _L183              
+          sw    $t3, -16($fp)           
+          beqz  $t4, _L183              
 _L182:                                  
           li    $t0, 0                  
           lw    $t1, 8($fp)             
@@ -1202,10 +1192,9 @@ _L184:
           lw    $t2, 0($t3)             
           li    $t2, 4                  
           mul   $t3, $t1, $t2           
-          add   $t2, $t0, $t3           
+          add   $t1, $t0, $t3           
           lw    $t0, -8($fp)            
-          sw    $t0, 0($t2)             
-          sw    $t1, 8($fp)             
+          sw    $t0, 0($t1)             
           b     _L185                   
 
 _SparseMatrix.Get:                      # function entry

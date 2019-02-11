@@ -40,6 +40,8 @@ public class BasicBlock {
 
     public Set<Temp> def;
 
+    public Set<Temp> redef;
+
     public Set<Pair> defDU;
 
     public Set<Temp> liveUse;
@@ -69,6 +71,7 @@ public class BasicBlock {
     public BasicBlock() {
         def = new TreeSet<Temp>(Temp.ID_COMPARATOR);
         defDU = new TreeSet<Pair>(Pair.COMPARATOR);
+        redef = new TreeSet<Temp>(Temp.ID_COMPARATOR);
         liveUse = new TreeSet<Temp>(Temp.ID_COMPARATOR);
         liveUseDU = new TreeSet<Pair>(Pair.COMPARATOR);
         liveIn = new TreeSet<Temp>(Temp.ID_COMPARATOR);
@@ -110,7 +113,7 @@ public class BasicBlock {
                         tac.op1.lastVisitedBB = bbNum;
                     }
 
-                    if (!def.contains(tac.op1))
+                    if (!redef.contains(tac.op1))
                         liveUseDU.add(new Pair(tac.id, tac.op1));
 
                     if (tac.op2.lastVisitedBB != bbNum) {
@@ -118,13 +121,16 @@ public class BasicBlock {
                         tac.op2.lastVisitedBB = bbNum;
                     }
 
-                    if (!def.contains(tac.op2))
+                    if (!redef.contains(tac.op2))
                         liveUseDU.add(new Pair(tac.id, tac.op2));
 
                     if (tac.op0.lastVisitedBB != bbNum) {
                         def.add(tac.op0);
                         tac.op0.lastVisitedBB = bbNum;
                     }
+
+                    redef.add(tac.op0);
+
                     break;
                 case NEG:
                 case LNOT:
@@ -132,18 +138,22 @@ public class BasicBlock {
                 case INDIRECT_CALL:
                 case LOAD:
                     /* use op1, def op0 */
+
                     if (tac.op1.lastVisitedBB != bbNum) {
                         liveUse.add(tac.op1);
                         tac.op1.lastVisitedBB = bbNum;
                     }
 
-                    if (!def.contains(tac.op1))
+                    if (!redef.contains(tac.op1))
                         liveUseDU.add(new Pair(tac.id, tac.op1));
 
-                    if (tac.op0 != null && tac.op0.lastVisitedBB != bbNum) {  // in INDIRECT_CALL with return type VOID,
+                    if (tac.op0 != null) {  // in INDIRECT_CALL with return type VOID,
                         // tac.op0 is null
-                        def.add(tac.op0);
-                        tac.op0.lastVisitedBB = bbNum;
+                        redef.add(tac.op0);
+                        if (tac.op0.lastVisitedBB != bbNum) {
+                            def.add(tac.op0);
+                            tac.op0.lastVisitedBB = bbNum;
+                        }
                     }
                     break;
                 case LOAD_VTBL:
@@ -152,10 +162,13 @@ public class BasicBlock {
                 case LOAD_STR_CONST:
                 case LOAD_IMM4:
                     /* def op0 */
-                    if (tac.op0 != null && tac.op0.lastVisitedBB != bbNum) {  // in DIRECT_CALL with return type VOID,
+                    if (tac.op0 != null) {  // in DIRECT_CALL with return type VOID,
                         // tac.op0 is null
-                        def.add(tac.op0);
-                        tac.op0.lastVisitedBB = bbNum;
+                        if (tac.op0.lastVisitedBB != bbNum) {
+                            def.add(tac.op0);
+                            tac.op0.lastVisitedBB = bbNum;
+                        }
+                        redef.add(tac.op0);
                     }
                     break;
                 case STORE:
@@ -165,7 +178,7 @@ public class BasicBlock {
                         tac.op0.lastVisitedBB = bbNum;
                     }
 
-                    if (!def.contains(tac.op0))
+                    if (!redef.contains(tac.op0))
                         liveUseDU.add(new Pair(tac.id, tac.op0));
 
                     if (tac.op1.lastVisitedBB != bbNum) {
@@ -173,7 +186,7 @@ public class BasicBlock {
                         tac.op1.lastVisitedBB = bbNum;
                     }
 
-                    if (!def.contains(tac.op1))
+                    if (!redef.contains(tac.op1))
                         liveUseDU.add(new Pair(tac.id, tac.op1));
                     break;
                 case PARM:
@@ -183,7 +196,7 @@ public class BasicBlock {
                         tac.op0.lastVisitedBB = bbNum;
                     }
 
-                    if (!def.contains(tac.op0))
+                    if (!redef.contains(tac.op0))
                         liveUseDU.add(new Pair(tac.id, tac.op0));
                     break;
                 default:
@@ -195,9 +208,97 @@ public class BasicBlock {
             liveUse.add(var);
             var.lastVisitedBB = bbNum;
         }
-        if (var != null && !def.contains(var))
+        if (var != null && !redef.contains(var))
             liveUseDU.add(new Pair(endId, var));
         liveIn.addAll(liveUse);
+        liveInDU.addAll(liveUseDU);
+    }
+
+    public void resolveDUChain() {
+        if (tacList == null)
+            return;
+        Tac tac = tacList;
+        for (; tac != null; tac = tac.next) {
+            if (tac.isGenerator()) {
+                boolean defined = false;
+                Tac current = tac.next;
+                Set<Integer> usages = new TreeSet<Integer>();
+                while (current != null && !defined) {
+                    switch (current.opc) {
+                        case ADD:
+                        case SUB:
+                        case MUL:
+                        case DIV:
+                        case MOD:
+                        case LAND:
+                        case LOR:
+                        case GTR:
+                        case GEQ:
+                        case EQU:
+                        case NEQ:
+                        case LEQ:
+                        case LES:
+                            /* use op1 and op2, def op0 */
+                            if (current.op1 == tac.op0)
+                                usages.add(current.id);
+                            else if (current.op2 == tac.op0)
+                                usages.add(current.id);
+                            if (current.op0 != null && current.op0 == tac.op0)
+                                defined = true;
+                            break;
+                        case NEG:
+                        case LNOT:
+                        case ASSIGN:
+                        case INDIRECT_CALL:
+                        case LOAD:
+                            /* use op1, def op0 */
+                            if (current.op1 == tac.op0)
+                                usages.add(current.id);
+                            if (current.op0 != null && current.op0 == tac.op0)
+                                defined = true;
+                            break;
+                        case LOAD_VTBL:
+                        case DIRECT_CALL:
+                        case RETURN:
+                        case LOAD_STR_CONST:
+                        case LOAD_IMM4:
+                            /* def op0 */
+                            if (current.op0 != null && current.op0 == tac.op0)
+                                defined = true;
+                            break;
+                        case STORE:
+                            /* use op0 and op1*/
+                            if (current.op0 == tac.op0)
+                                usages.add(current.id);
+                            else if (current.op1 == tac.op0)
+                                usages.add(current.id);
+                            break;
+                        case BEQZ:
+                        case BNEZ:
+                        case PARM:
+                            /* use op0 */
+                            if (current.op0 == tac.op0)
+                                usages.add(current.id);
+                            break;
+                        default:
+                            /* BRANCH MEMO MARK */
+                            break;
+                    }
+                    current = current.next;
+                }
+
+                if (!defined) {
+                    if (var != null && var == tac.op0)
+                        usages.add(endId);
+                    for (Pair p : liveOutDU)
+                        if (p.tmp == tac.op0)
+                            usages.add(p.pos);
+                }
+                if (!usages.isEmpty())
+                    DUChain.put(new Pair(tac.id, tac.op0), usages);
+            }
+        }
+
     }
 
     public void analyzeLiveness() {
@@ -205,7 +306,7 @@ public class BasicBlock {
             return;
         Tac tac = tacList;
         // stop at the end
-        for (; tac.next != null; tac = tac.next) ;
+        for (; tac.next != null; tac = tac.next);
 
         tac.liveOut = new HashSet<Temp>(liveOut);
         if (var != null)
@@ -214,6 +315,7 @@ public class BasicBlock {
             // let LiveIn equal LiveOut, then remove Def and add LiveUse
             tac.prev.liveOut = new HashSet<Temp>(tac.liveOut);
             switch (tac.opc) {
+                // 13
                 case ADD:
                 case SUB:
                 case MUL:
@@ -232,6 +334,7 @@ public class BasicBlock {
                     tac.prev.liveOut.add(tac.op1);
                     tac.prev.liveOut.add(tac.op2);
                     break;
+                // 5
                 case NEG:
                 case LNOT:
                 case ASSIGN:
@@ -241,6 +344,7 @@ public class BasicBlock {
                     tac.prev.liveOut.remove(tac.op0);
                     tac.prev.liveOut.add(tac.op1);
                     break;
+                // 5
                 case LOAD_VTBL:
                 case DIRECT_CALL:
                 case RETURN:
@@ -261,7 +365,7 @@ public class BasicBlock {
                     tac.prev.liveOut.add(tac.op0);
                     break;
                 default:
-                    /* BRANCH MEMO MARK PARM*/
+                    /* BRANCH MEMO MARK */
                     break;
             }
         }
@@ -302,11 +406,13 @@ public class BasicBlock {
         pw.println("BASIC BLOCK " + bbNum + " : ");
         pw.println("  Def     = " + toString(def));
         pw.println("  defDU   = " + printPair(defDU));
+        pw.println("  redef   = " + toString(redef));
         pw.println("  liveUseDU = " + printPair(liveUseDU));
         pw.println("  liveUse = " + toString(liveUse));
         pw.println("  liveIn  = " + toString(liveIn));
+        pw.println("  liveInDU = " + printPair(liveInDU));
         pw.println("  liveOut = " + toString(liveOut));
-
+        pw.println("  liveOutDU = " + printPair(liveOutDU));
         for (Tac t = tacList; t != null; t = t.next) {
             pw.println("    " + t.id + " " + t + " " + toString(t.liveOut));
         }
