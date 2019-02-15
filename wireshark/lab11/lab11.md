@@ -22,6 +22,18 @@ A frame may contain up to 4 Addresses depending on the ToDS and FromDS bits defi
 	* Address-2 is always the Transmitter Address(i.e. the station who is physically transmitting the packet), if FromDS is set this is the address of the AP, otherwise it is the address of the station.  
 	* Address-3 is in most cases the remaining, missing address, on a frame with FromDS set to 1, then the Address-3 is the original Source Address, if the frame has the ToDS set then Address 3 is the destination address.  
 	* Address-4 is used on the special case where a Wireless Distribution System is used, and the frame is being trasmitted from one Access Point to another, in this case both the ToDS and FromDS bits are set, so both the original destination and the original source address are missing.  
+
+|ToDS|FromDS|Address 1|Address 2|Address 3|Address 4|  
+|:---:|:---:|:---:|:---:|:---:|:---:|  
+|0|0|DA|SA|BSSID|N/A|  
+|0|1|DA|BSSID|SA|N/A|  
+|1|0|BSSID|SA|DA|N/A|  
+|1|1|RA|TA|DA|SA|  
+    
+* Within the  802.11 2.4GHz frequency range, there are 11 partially overlapping channels. Any two channels are non-overlapping if and only if they are separated by four or more channels. In particular, the set of channels 1, 6, and 11 is the only set of three non-overlapping channels.  
+* There are two ways to find out available AP, i.e., passive scanning and active scanning. The latter relys on **probe request** and **probe response** messages.  
+
+
 1. What are the SSIDs of the two access points that are issuing most of the beacon frames in this trace?  
 30 Munroe St and linksys12.  
 *answers from the solution: It seems that there are totally 3 SSID in the frame.The last one is linksys_ses_24086.*  
@@ -33,7 +45,7 @@ Both are 0.102400 seconds.
 ff:ff:ff:ff:ff:ff.  
 5. What (in hexadecimal notation) is the MAC BSS id on the beacon frame from 30 Munroe St?  
 00:16:b6:f7:1d:51.  
-6. The beacon frames from the 30 Munroe St access point advertise that the access point can support four data rates and eight additional “extended supported rates.” What are these rates?  
+6. The beacon frames from the 30 Munroe St access point advertise that the access point can support four data rates and eight additional extended supported rates? What are these rates?  
 4 data rates: 1 Mbit/sec, 2 Mbit/sec, 5.5 Mbit/sec, 11 Mbit/sec.  
 8 extended supported rates: 6 Mbit/sec, 9 Mbit/sec, 12 Mbit/sec, 18 Mbit/sec, 24 Mbit/sec, 36 Mbit/sec, 48 Mbit/sec, 54 Mbit/sec.  
 7. Find the 802.11 frame containing the SYN TCP segment for this first TCP session (that downloads alice.txt).  What are three MAC address fields in the 802.11 frame? Which MAC address in this frame corresponds to the wireless host (give the hexadecimal representation of the MAC address for the host)? To the access point?  To the first-hop router?  What is the IP address of the wireless host sending this TCP segment?  What is the destination IP address?  Does this destination IP address correspond to the host, access point, first-hop router, or some other network-attached device?  Explain.  
@@ -42,22 +54,24 @@ address-2 (source address, wireless host): 00:13:02:d1:b6:4f.
 address-3 (destination address, first-hop router): 00:16:b6:f4:eb:a8.  
 wireless host IP address: 192.168.1.109.  
 destination IP address: 128.119.245.12. It corresponds to a host, because it's the destination address of the server which will offer the content the following HTTP messages request.  
-8. Find the 802.11 frame containing the SYN ACK segment for this TCP session. What are three MAC address fields in the 802.11 frame? Which MAC address in this frame corresponds to the host? To the access point?  To the first-hop router? Does the sender MAC address in the frame correspond to the IP address of the device that sent the TCP segment encapsulated within this datagram? (Hint: review Figure 6.19 in the text if you are unsure of how to answer this question, or the corresponding part of the previous question.  It’s particularly important that you understand this). 
+8. Find the 802.11 frame containing the SYN ACK segment for this TCP session. What are three MAC address fields in the 802.11 frame? Which MAC address in this frame corresponds to the host? To the access point?  To the first-hop router? Does the sender MAC address in the frame correspond to the IP address of the device that sent the TCP segment encapsulated within this datagram? (Hint: review Figure 6.19 in the text if you are unsure of how to answer this question, or the corresponding part of the previous question.  It's particularly important that you understand this). 
 address-1 (destination address, host): 91:2a:b0:49:b6:4f.  
 address-2 (BSSID, access point): 00:16:b6:f7:1d:51.  
 address-3 (source address, first hop router): 00:16:b6:f4:eb:a8.  
 No, because the sender MAC address is that of the access point.  
-9. What two actions are taken (i.e., frames are sent) by the host in the trace just after t=49, to end the association with the 30 Munroe St AP that was initially in place when trace collection began?  (Hint: one is an IP-layer action, and one is an 802.11-layer action).  Looking at the 802.11 specification, is there another frame that you might have expected to see, but don’t see here?  
-10. Examine the trace file and look for AUTHENICATION frames sent from the host to an AP and vice versa.  How many AUTHENTICATION messages are sent from the wireless host to the linksys\_ses\_24086 AP (which has a MAC address of Cisco\_Li\_f5:ba:bb) starting at around t=49? .
-6.  
+9. What two actions are taken (i.e., frames are sent) by the host in the trace just after t=49, to end the association with the 30 Munroe St AP that was initially in place when trace collection began?  (Hint: one is an IP-layer action, and one is an 802.11-layer action).  Looking at the 802.11 specification, is there another frame that you might have expected to see, but don't see here?  
+At 49.583615, the host sent a DHCP release message to release its own IP address. Then it sent a deauthentication 802.11 frame to end then association.  
+*Solutions from the answer: A disassociation frame might have been sent which is not present here.*  
+10. Examine the trace file and look for AUTHENICATION frames sent from the host to an AP and vice versa.  How many AUTHENTICATION messages are sent from the wireless host to the linksys\_ses\_24086 AP (which has a MAC address of Cisco\_Li\_f5:ba:bb) starting at around t=49?  
+6\.  
 11. Does the host want the authentication to require a key or by open?  
 open.  
 12. Do you see a reply AUTHENTICATION from the *linksys_ses_24086* AP in the trace?  
 No.  
-13. Now let’s consider what happens as the host gives up trying to associate with the linksys\_ses\_24086 AP and now tries to associate with the 30 Munroe St AP. Look for AUTHENICATION frames sent from the host to and AP and vice versa. At what times are there an AUTHENTICATION frame from the host to the 30 Munroe St. AP, and when is there a reply AUTHENTICATION sent from that AP to the host in reply? (Note that you can use the filter expression “wlan.fc.subtype == 11and wlan.fc.type == 0 and wlan.addr == IntelCor\_d1:b6:4f” to display only the AUTHENTICATION frames in this trace for this wireless host.)  
+13. Now let's consider what happens as the host gives up trying to associate with the linksys\_ses\_24086 AP and now tries to associate with the 30 Munroe St AP. Look for AUTHENICATION frames sent from the host to and AP and vice versa. At what times are there an AUTHENTICATION frame from the host to the 30 Munroe St. AP, and when is there a reply AUTHENTICATION sent from that AP to the host in reply? (Note that you can use the filter expression wlan.fc.subtype == 11and wlan.fc.type == 0 and wlan.addr == IntelCor\_d1:b6:4f" to display only the AUTHENTICATION frames in this trace for this wireless host.)  
 63.168087, 63.169071.  
-14. An ASSOCIATE REQUEST from host to AP, and a corresponding ASSOCIATE RESPONSE frame from AP to host are used for the host to associated with an AP. At what time is there an ASSOCIATE REQUEST from host to the 30 Munroe St AP?  When is the corresponding ASSOCIATE REPLY sent? (Note that you can use the filter expression “wlan.fc.subtype < 2 and wlan.fc.type == 0 and
-wlan.addr == IntelCor\_d1:b6:4f” to display only the ASSOCIATE REQUEST and ASSOCIATE RESPONSE frames for this trace.)  
+14. An ASSOCIATE REQUEST from host to AP, and a corresponding ASSOCIATE RESPONSE frame from AP to host are used for the host to associated with an AP. At what time is there an ASSOCIATE REQUEST from host to the 30 Munroe St AP?  When is the corresponding ASSOCIATE REPLY sent? (Note that you can use the filter expression wlan.fc.subtype < 2 and wlan.fc.type == 0 and
+wlan.addr == IntelCor\_d1:b6:4f" to display only the ASSOCIATE REQUEST and ASSOCIATE RESPONSE frames for this trace.)  
 63.169910, 63.192101.  
 15. What transmission rates is the host willing to use?  The AP?   To answer this question, you will need to look into the parameters fields of the 802.11 wireless LAN management frame.  
 Both are 1, 2, 5.5, 6, 9, 11, 12, 18, 24, 36, 48, 54 Mbit/sec.  
