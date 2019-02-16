@@ -12,7 +12,7 @@
 struct arpmac
 {
     unsigned char * mac;
-    unsigned int index;
+    unsigned int indoex;
 };
 
 

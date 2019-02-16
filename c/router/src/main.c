@@ -96,7 +96,6 @@ int main() {
             if (ip_recvpkt->ip_src.s_addr == inet_addr("192.168.1.10") &&
                 ip_recvpkt->ip_dst.s_addr == inet_addr("192.168.6.2")) {
                 //分析打印ip数据包的源和目的ip地址
-                //	analyseIP(ip_recvpkt);
 
                 int s;
                 memset(data, 0, 1480);
@@ -150,6 +149,10 @@ int main() {
             }
 
 
+        }
+        else {
+            perror("error in recv");
+            exit(EXIT_FAILURE);
         }
     }
 
