@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.1)
 project(router)
 
 set(CMAKE_C_STANDARD 99)
@@ -13,7 +13,7 @@ add_executable(router
         src/recvroute.c
         src/sendetherip.c
         src/error.c
-        src/main.c)
+        test/arp_test.c)
 target_include_directories(router
         PRIVATE
         ${PROJECT_SOURCE_DIR}/include)
