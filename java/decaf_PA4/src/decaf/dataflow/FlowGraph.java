@@ -24,6 +24,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
 
     private List<BasicBlock> bbs;
 
+    private Pair debug = new Pair(269, new Temp(118, "_T", 4, Integer.MAX_VALUE));
     public FlowGraph(Functy func) {
         this.functy = func;
         deleteMemo(func);
@@ -175,6 +176,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
                         // basic blocks that don't end with jump
                         if (nextStart == null) {
                             current.endKind = BasicBlock.EndKind.BY_RETURN;
+                            current.next[0] = current.next[1] = -1;
                         } else {
                             current.endKind = BasicBlock.EndKind.BY_BRANCH;
                             current.next[0] = current.next[1] = nextStart.bbNum;
@@ -219,17 +221,36 @@ public class FlowGraph implements Iterable<BasicBlock> {
         boolean changed;
         do {
             changed = false;
+            boolean adderror = false;
             for (BasicBlock bb : bbs) {
                 for (int i = 0; i < 2; i++) {
                     if (bb.next[i] >= 0) {
-                        bb.liveOutDU.addAll(bbs.get(bb.next[i]).liveInDU);
+//                            if (!bb.liveOutDU.contains(debug) &&
+//                                    bbs.get(bb.next[i]).liveInDU.contains(debug)) {
+//                                System.out.println(bb.bbNum + " from liveInDU " + bb.next[i]);
+//                                adderror = true;
+//                            }
+                            bb.liveOutDU.addAll(bbs.get(bb.next[i]).liveInDU);
                     }
                 }
                 bb.liveOutDU.removeAll(bb.defDU);
+//                if (adderror && bb.liveOutDU.contains(debug)) {
+//                    System.out.println("**************************");
+//                    System.out.println("add to " + bb.bbNum + " liveInDU");
+//                    adderror = false;
+//                }
+
+                int a = 0;
+                //Set<Pair> b = bbs.get(bb.next[1]).liveInDU;
                 if (bb.liveInDU.addAll(bb.liveOutDU))
                     changed = true;
                 for (int i = 0; i < 2; i++) {
                     if (bb.next[i] >= 0) {
+//                        if (!bb.liveOutDU.contains(debug) &&
+//                                bbs.get(bb.next[i]).liveInDU.contains(debug)) {
+//                            System.out.println("add to " + bb.bbNum + " liveOutDU from liveInDU " + bb.next[i]);
+//                            adderror = true;
+//                        }
                         bb.liveOutDU.addAll(bbs.get(bb.next[i]).liveInDU);
                     }
                 }
@@ -238,7 +259,14 @@ public class FlowGraph implements Iterable<BasicBlock> {
     }
 
     public void computedefDU(BasicBlock bb, BasicBlock next, Set<Temp> copyDef) {
+//        System.out.println(next.bb);
+//        System.out.println(bb.tacList.id);
         ++next.visited;
+//        if (bb.bbNum == 16) {
+//            System.out.println(next.bbNum + " " + next.visited);
+//            System.out.println(copyDef.toString());
+//            System.out.println(next.liveUse.toString());
+//        }
         for (Temp temp: next.liveUse) {
             if (copyDef.contains(temp)) {
                 for (Pair pair : next.liveUseDU)
@@ -251,10 +279,11 @@ public class FlowGraph implements Iterable<BasicBlock> {
             if (!copyDef.isEmpty() && next.next[i] >= 0) {
                 Set<Temp> copy = new TreeSet<Temp>(Temp.ID_COMPARATOR);
                 copy.addAll(copyDef);
-                if (bbs.get(next.next[i]).visited < 2)
+                if (bbs.get(next.next[i]).visited == 0)
                     computedefDU(bb, bbs.get(next.next[i]), copy);
             }
         }
+        --next.visited;
     }
     public void analyzeLiveness() {
         for (BasicBlock bb: bbs) {

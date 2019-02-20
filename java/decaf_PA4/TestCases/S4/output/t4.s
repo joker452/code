@@ -179,14 +179,11 @@ _L42:
           lw    $t1, -8($fp)            
           sw    $t1, 8($sp)             
           lw    $t1, 0($t0)             
-          lw    $t2, 8($t1)             
-          sw    $t0, 4($fp)             
-          jalr  $t2                     
+          lw    $t0, 8($t1)             
+          jalr  $t0                     
           move  $t1, $v0                
-          lw    $t0, 4($fp)             
-          move  $t2, $t1                
-          sw    $t0, 4($fp)             
-          sw    $t2, -12($fp)           
+          move  $t0, $t1                
+          sw    $t0, -12($fp)           
 _L44:                                   
           li    $t0, 0                  
           lw    $t1, -12($fp)           
@@ -276,15 +273,10 @@ _L53:
           lw    $t0, -12($fp)           
           lw    $t1, -4($t0)            
           sw    $t1, 4($sp)             
-          sw    $t0, -12($fp)           
           jal   _PrintInt               
-          lw    $t0, -12($fp)           
-          la    $t1, _STRING3           
-          sw    $t1, 4($sp)             
-          sw    $t0, -12($fp)           
+          la    $t0, _STRING3           
+          sw    $t0, 4($sp)             
           jal   _PrintString            
-          lw    $t0, -12($fp)           
-          sw    $t0, -12($fp)           
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             

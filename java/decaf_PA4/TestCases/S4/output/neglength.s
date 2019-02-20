@@ -76,21 +76,20 @@ _L18:
           mul   $t2, $t0, $t1           
           add   $t3, $t0, $t2           
           sw    $t3, 4($sp)             
-          sw    $t1, 8($fp)             
           sw    $t3, -8($fp)            
+          sw    $t1, 8($fp)             
           sw    $t0, -12($fp)           
           jal   _Alloc                  
           move  $t2, $v0                
-          lw    $t1, 8($fp)             
           lw    $t3, -8($fp)            
+          lw    $t1, 8($fp)             
           lw    $t0, -12($fp)           
           sw    $t1, 0($t2)             
-          li    $t4, 0                  
+          li    $t1, 0                  
           add   $t2, $t2, $t3           
-          sw    $t1, 8($fp)             
           sw    $t3, -8($fp)            
           sw    $t2, -16($fp)           
-          sw    $t4, -20($fp)           
+          sw    $t1, -20($fp)           
           sw    $t0, -12($fp)           
 _L19:                                   
           lw    $t0, -8($fp)            
@@ -113,7 +112,6 @@ _L21:
           lw    $t0, 4($fp)             
           lw    $t1, -16($fp)           
           sw    $t1, 4($t0)             
-          sw    $t0, 4($fp)             
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             

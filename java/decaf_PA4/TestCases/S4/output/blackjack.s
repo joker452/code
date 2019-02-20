@@ -293,8 +293,6 @@ _L180:
           lw    $t1, 4($t0)             
           lw    $t1, 8($fp)             
           sw    $t1, 4($t0)             
-          sw    $t0, 4($fp)             
-          sw    $t1, 8($fp)             
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             
@@ -409,8 +407,6 @@ _L188:
           lw    $t1, 12($t0)            
           lw    $t1, 8($fp)             
           sw    $t1, 12($t0)            
-          sw    $t0, 4($fp)             
-          sw    $t1, 8($fp)             
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             
@@ -863,8 +859,6 @@ _L233:
           lw    $t1, 12($t0)            
           lw    $t1, 8($fp)             
           sw    $t1, 12($t0)            
-          sw    $t0, 4($fp)             
-          sw    $t1, 8($fp)             
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             
@@ -1046,12 +1040,9 @@ _L253:
           lw    $t1, 8($t0)             
           li    $t1, 0                  
           sw    $t1, 8($t0)             
-          la    $t1, _STRING10          
-          sw    $t1, 4($sp)             
-          sw    $t0, 4($fp)             
+          la    $t0, _STRING10          
+          sw    $t0, 4($sp)             
           jal   _PrintString            
-          lw    $t0, 4($fp)             
-          sw    $t0, 4($fp)             
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             
@@ -1093,27 +1084,19 @@ _L255:
           lw    $t1, 8($fp)             
           sw    $t1, 4($sp)             
           sw    $t0, 4($fp)             
-          sw    $t1, 8($fp)             
           jal   _PrintInt               
           lw    $t0, 4($fp)             
-          lw    $t1, 8($fp)             
-          la    $t2, _STRING12          
-          sw    $t2, 4($sp)             
+          la    $t1, _STRING12          
+          sw    $t1, 4($sp)             
           sw    $t0, 4($fp)             
-          sw    $t1, 8($fp)             
           jal   _PrintString            
           lw    $t0, 4($fp)             
-          lw    $t1, 8($fp)             
-          lw    $t2, 24($t0)            
+          lw    $t1, 24($t0)            
           sw    $t0, 4($fp)             
-          sw    $t1, 8($fp)             
           jal   _ReadLine               
-          move  $t2, $v0                
+          move  $t1, $v0                
           lw    $t0, 4($fp)             
-          lw    $t1, 8($fp)             
-          sw    $t2, 24($t0)            
-          sw    $t0, 4($fp)             
-          sw    $t1, 8($fp)             
+          sw    $t1, 24($t0)            
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             
@@ -1503,15 +1486,10 @@ _L277:
           lw    $t0, 4($fp)             
           lw    $t1, 20($t0)            
           sw    $t1, 4($sp)             
-          sw    $t0, 4($fp)             
           jal   _PrintInt               
-          lw    $t0, 4($fp)             
-          la    $t1, _STRING14          
-          sw    $t1, 4($sp)             
-          sw    $t0, 4($fp)             
+          la    $t0, _STRING14          
+          sw    $t0, 4($sp)             
           jal   _PrintString            
-          lw    $t0, 4($fp)             
-          sw    $t0, 4($fp)             
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             
@@ -1648,7 +1626,6 @@ _L298:
           add   $t4, $t1, $t2           
           sub   $t1, $t4, $t3           
           sw    $t1, 20($t0)            
-          sw    $t0, 4($fp)             
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             
@@ -1739,7 +1716,6 @@ _L291:
           lw    $t2, 8($fp)             
           sgt   $t3, $t2, $t1           
           sw    $t0, 4($fp)             
-          sw    $t2, 8($fp)             
           beqz  $t3, _L293              
 _L292:                                  
           li    $t0, 1                  
@@ -1789,7 +1765,6 @@ _L300:
           move  $t2, $t1                
           lw    $t1, 24($t0)            
           sw    $t2, 24($t0)            
-          sw    $t0, 4($fp)             
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             
@@ -1946,12 +1921,9 @@ _L308:
           lw    $t0, 4($fp)             
           lw    $t1, 12($t0)            
           sw    $t1, 4($sp)             
-          lw    $t2, 0($t1)             
-          lw    $t1, 16($t2)            
-          sw    $t0, 4($fp)             
+          lw    $t0, 0($t1)             
+          lw    $t1, 16($t0)            
           jalr  $t1                     
-          lw    $t0, 4($fp)             
-          sw    $t0, 4($fp)             
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             
@@ -2604,11 +2576,8 @@ _L371:
           lw    $t0, 4($fp)             
           sw    $t0, 4($sp)             
           lw    $t1, 0($t0)             
-          lw    $t2, 24($t1)            
-          sw    $t0, 4($fp)             
-          jalr  $t2                     
-          lw    $t0, 4($fp)             
-          sw    $t0, 4($fp)             
+          lw    $t0, 24($t1)            
+          jalr  $t0                     
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             

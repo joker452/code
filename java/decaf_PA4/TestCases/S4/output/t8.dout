@@ -68,12 +68,12 @@ BASIC BLOCK 0 :
   liveUse = [ _T0 _T1 _T2 ]
   liveIn  = [ _T0 _T1 _T2 ]
   liveInDU = [ (26, _T0) (27, _T0) (28, _T0) (29, _T0) (27, _T1) (29, _T2) ]
-  liveOut = [ _T0 _T1 _T2 ]
-  liveOutDU = [ (26, _T0) (27, _T0) (28, _T0) (29, _T0) (27, _T1) (29, _T2) ]
+  liveOut = [ ]
+  liveOutDU = [ ]
     26 _T21 = *(_T0 + 4) [ _T0 _T1 _T2 ]
-    27 *(_T0 + 4) = _T1 [ _T0 _T1 _T2 ]
-    28 _T22 = *(_T0 + 8) [ _T0 _T1 _T2 ]
-    29 *(_T0 + 8) = _T2 [ _T0 _T1 _T2 ]
+    27 *(_T0 + 4) = _T1 [ _T0 _T2 ]
+    28 _T22 = *(_T0 + 8) [ _T0 _T2 ]
+    29 *(_T0 + 8) = _T2 [ ]
 END BY RETURN, void result
 
 FUNCTION _Animal.GetHeight : 
@@ -113,16 +113,16 @@ BASIC BLOCK 0 :
   liveUse = [ _T5 _T6 _T7 _T8 ]
   liveIn  = [ _T5 _T6 _T7 _T8 ]
   liveInDU = [ (35, _T5) (36, _T5) (37, _T5) (40, _T5) (38, _T6) (39, _T7) (36, _T8) ]
-  liveOut = [ _T5 _T6 _T7 _T8 ]
-  liveOutDU = [ (35, _T5) (36, _T5) (37, _T5) (40, _T5) (38, _T6) (39, _T7) (36, _T8) ]
+  liveOut = [ ]
+  liveOutDU = [ ]
     35 _T25 = *(_T5 + 12) [ _T5 _T6 _T7 _T8 ]
-    36 *(_T5 + 12) = _T8 [ _T5 _T6 _T7 _T8 ]
-    37 parm _T5 [ _T5 _T6 _T7 _T8 ]
-    38 parm _T6 [ _T5 _T6 _T7 _T8 ]
-    39 parm _T7 [ _T5 _T6 _T7 _T8 ]
-    40 _T26 = *(_T5 + 0) [ _T5 _T6 _T7 _T8 _T26 ]
-    41 _T27 = *(_T26 + 8) [ _T5 _T6 _T7 _T8 _T27 ]
-    42 call _T27 [ _T5 _T6 _T7 _T8 ]
+    36 *(_T5 + 12) = _T8 [ _T5 _T6 _T7 ]
+    37 parm _T5 [ _T5 _T6 _T7 ]
+    38 parm _T6 [ _T5 _T7 ]
+    39 parm _T7 [ _T5 ]
+    40 _T26 = *(_T5 + 0) [ _T26 ]
+    41 _T27 = *(_T26 + 8) [ _T27 ]
+    42 call _T27 [ ]
 END BY RETURN, void result
 
 FUNCTION _Cow.IsSpottedCow : 

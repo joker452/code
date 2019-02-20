@@ -67,12 +67,9 @@ _L15:
           lw    $t1, 8($t0)             
           lw    $t1, 8($fp)             
           sw    $t1, 8($t0)             
-          lw    $t2, 4($t0)             
-          lw    $t2, 12($fp)            
-          sw    $t2, 4($t0)             
-          sw    $t0, 4($fp)             
-          sw    $t1, 8($fp)             
-          sw    $t2, 12($fp)            
+          lw    $t1, 4($t0)             
+          lw    $t1, 12($fp)            
+          sw    $t1, 4($t0)             
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             
@@ -97,15 +94,10 @@ _L16:
           lw    $t0, 4($fp)             
           lw    $t1, 8($t0)             
           sw    $t1, 4($sp)             
-          sw    $t0, 4($fp)             
           jal   _PrintInt               
-          lw    $t0, 4($fp)             
-          la    $t1, _STRING3           
-          sw    $t1, 4($sp)             
-          sw    $t0, 4($fp)             
+          la    $t0, _STRING3           
+          sw    $t0, 4($sp)             
           jal   _PrintString            
-          lw    $t0, 4($fp)             
-          sw    $t0, 4($fp)             
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             
