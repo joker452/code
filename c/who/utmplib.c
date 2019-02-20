@@ -7,13 +7,8 @@
  *                      returns NULL on eof
  *              utmp_close()            - close file
  *
- *      reads NRECS per read and then doles them out from the buffer
- */
-#include        <stdio.h>
-#include        <fcntl.h>
-#include        <sys/types.h>
-#include        <utmp.h>
-
+ *      reads NRECS per read and then doles them out from the buffer */
+#include "utmplib.h"
 #define NRECS   16
 #define NULLUT  ((struct utmp *)NULL)
 #define UTSIZE  (sizeof(struct utmp))
@@ -23,7 +18,7 @@ static  int     num_recs;                               /* num stored   */
 static  int     cur_rec;                                /* next to go   */
 static  int     fd_utmp = -1;                           /* read from    */
 
-utmp_open( char *filename )
+int utmp_open( char *filename )
 {
 }
 
@@ -38,7 +33,11 @@ int utmp_reload()
 {
 }
 
-utmp_close()
+int utmp_close()
+{
+
+}
+off_t utmp_seek(off_t record_offset, int base)
 {
 
 }
