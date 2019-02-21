@@ -127,11 +127,8 @@ _L30:
           sw    $t0, 4($sp)             
           sw    $t1, 8($sp)             
           lw    $t1, 0($t0)             
-          lw    $t2, 12($t1)            
-          sw    $t0, 4($fp)             
-          jalr  $t2                     
-          lw    $t0, 4($fp)             
-          sw    $t0, 4($fp)             
+          lw    $t0, 12($t1)            
+          jalr  $t0                     
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             
@@ -175,14 +172,12 @@ _L34:
           add   $t1, $t0, $t3           
           lw    $t0, 8($fp)             
           sw    $t0, 0($t1)             
-          lw    $t1, 4($fp)             
-          lw    $t2, 4($t1)             
-          lw    $t2, 4($t1)             
-          li    $t3, 1                  
-          add   $t4, $t2, $t3           
-          sw    $t4, 4($t1)             
-          sw    $t1, 4($fp)             
-          sw    $t0, 8($fp)             
+          lw    $t0, 4($fp)             
+          lw    $t1, 4($t0)             
+          lw    $t1, 4($t0)             
+          li    $t2, 1                  
+          add   $t3, $t1, $t2           
+          sw    $t3, 4($t0)             
           move  $sp, $fp                
           lw    $ra, -4($fp)            
           lw    $fp, 0($fp)             

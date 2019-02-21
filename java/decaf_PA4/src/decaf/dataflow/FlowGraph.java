@@ -5,10 +5,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.Map;
 
 import decaf.tac.Functy;
 import decaf.tac.Tac;
+import decaf.tac.Temp;
 import decaf.tac.Tac.Kind;
 
 /**
@@ -21,24 +24,33 @@ public class FlowGraph implements Iterable<BasicBlock> {
 
     private List<BasicBlock> bbs;
 
+    private Pair debug = new Pair(269, new Temp(118, "_T", 4, Integer.MAX_VALUE));
     public FlowGraph(Functy func) {
         this.functy = func;
         deleteMemo(func);
         bbs = new ArrayList<BasicBlock>();
-        // mark all basic blocks in current Functy
+        // set the bbNum of each tac
         markBasicBlocks(func.head);
-        // construct FlowGraph
+        // construct BasicBlocks and their relations, and add them to bbs
         gatherBasicBlocks(func.head);
         // remove unreachable basic blocks
+        // note after this, bbNum of tacs doesn't change,
+        // but it doesn't matter because the only usage of bbNum of
+        // tacs is to set bbNum of basic blocks
         simplify();
+
         for (BasicBlock bb : bbs) {
             bb.allocateTacIds();
         }
+        int i = 0;
+
         // liveness analysis at basic block level
         analyzeLiveness();
+        resolveDUChain();
         for (BasicBlock bb : bbs) {
             // liveness analysis at Tac level
             bb.analyzeLiveness();
+            bb.resolveDUChain();
         }
     }
 
@@ -89,6 +101,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
                         }
                     } else {
                         // if the instruction before the label isn't jump
+                        // this is because jump already start a new block
                         if (!atStart) {
                             index++;
                             t.bbNum = index;
@@ -108,22 +121,24 @@ public class FlowGraph implements Iterable<BasicBlock> {
         BasicBlock current;
         Tac nextStart;
         Tac end;
-        // the bbNum os the first block is always 0
+        // the bbNum of the first block is always 0
         while (start != null && start.bbNum < 0) {
             start = start.next;
         }
 
         for (; start != null; start = nextStart) {
             int bbNum = start.bbNum;
+            // basic blocks don't contain Mark
             while (start != null && start.opc == Tac.Kind.MARK) {
                 start = start.next;
             }
-            // empty block?
+            // Functy corresponds to an empty block
             if (start == null) {
                 current = new BasicBlock();
                 current.bbNum = bbNum;
                 current.tacList = null;
                 current.endKind = BasicBlock.EndKind.BY_RETURN;
+                current.next[0] = current.next[1] = -1;
                 nextStart = null;
             } else {
                 start.prev = null;
@@ -158,9 +173,10 @@ public class FlowGraph implements Iterable<BasicBlock> {
                         end = end.prev;
                         break;
                     default:
-                        // some special cases, such as dead block
+                        // basic blocks that don't end with jump
                         if (nextStart == null) {
                             current.endKind = BasicBlock.EndKind.BY_RETURN;
+                            current.next[0] = current.next[1] = -1;
                         } else {
                             current.endKind = BasicBlock.EndKind.BY_BRANCH;
                             current.next[0] = current.next[1] = nextStart.bbNum;
@@ -189,11 +205,94 @@ public class FlowGraph implements Iterable<BasicBlock> {
         return bbs.size();
     }
 
+    public void resolveDUChain() {
+        for (BasicBlock bb: bbs) {
+            for (BasicBlock b: bbs)
+                b.visited = 0;
+            for (int i = 0; i < 2; ++i) {
+                if (bb.next[i] >= 0) {
+                    Set<Temp> copyDef = new TreeSet<Temp>(Temp.ID_COMPARATOR);
+                    copyDef.addAll(bb.redef);
+                    computedefDU(bb, bbs.get(bb.next[i]), copyDef);
+                }
+            }
+        }
+
+        boolean changed;
+        do {
+            changed = false;
+            boolean adderror = false;
+            for (BasicBlock bb : bbs) {
+                for (int i = 0; i < 2; i++) {
+                    if (bb.next[i] >= 0) {
+//                            if (!bb.liveOutDU.contains(debug) &&
+//                                    bbs.get(bb.next[i]).liveInDU.contains(debug)) {
+//                                System.out.println(bb.bbNum + " from liveInDU " + bb.next[i]);
+//                                adderror = true;
+//                            }
+                            bb.liveOutDU.addAll(bbs.get(bb.next[i]).liveInDU);
+                    }
+                }
+                bb.liveOutDU.removeAll(bb.defDU);
+//                if (adderror && bb.liveOutDU.contains(debug)) {
+//                    System.out.println("**************************");
+//                    System.out.println("add to " + bb.bbNum + " liveInDU");
+//                    adderror = false;
+//                }
+
+                int a = 0;
+                //Set<Pair> b = bbs.get(bb.next[1]).liveInDU;
+                if (bb.liveInDU.addAll(bb.liveOutDU))
+                    changed = true;
+                for (int i = 0; i < 2; i++) {
+                    if (bb.next[i] >= 0) {
+//                        if (!bb.liveOutDU.contains(debug) &&
+//                                bbs.get(bb.next[i]).liveInDU.contains(debug)) {
+//                            System.out.println("add to " + bb.bbNum + " liveOutDU from liveInDU " + bb.next[i]);
+//                            adderror = true;
+//                        }
+                        bb.liveOutDU.addAll(bbs.get(bb.next[i]).liveInDU);
+                    }
+                }
+            }
+        } while (changed);
+    }
+
+    public void computedefDU(BasicBlock bb, BasicBlock next, Set<Temp> copyDef) {
+//        System.out.println(next.bbNum);
+//        if (bb.tacList.id == 39)
+//            System.out.println("start");
+        ++next.visited;
+//        if (bb.bbNum == 16) {
+//            System.out.println(next.bbNum + " " + next.visited);
+//            System.out.println(copyDef.toString());
+//            System.out.println(next.liveUse.toString());
+//        }
+        for (Temp temp: next.liveUse) {
+            if (copyDef.contains(temp)) {
+                for (Pair pair : next.liveUseDU)
+                    if (pair.tmp == temp)
+                        bb.defDU.add(pair);
+            }
+        }
+        copyDef.removeAll(next.redef);
+        int i = (next.next[0] == next.next[1]) ? 1: 0;
+        for (; i < 2; ++i) {
+            if (!copyDef.isEmpty() && next.next[i] >= 0) {
+                Set<Temp> copy = new TreeSet<Temp>(Temp.ID_COMPARATOR);
+                copy.addAll(copyDef);
+                if (bbs.get(next.next[i]).visited == 0)
+                    computedefDU(bb, bbs.get(next.next[i]), copy);
+            }
+        }
+        --next.visited;
+    }
     public void analyzeLiveness() {
-        for (BasicBlock bb : bbs) {
+        for (BasicBlock bb: bbs) {
+            // also initialize liveIn to liveUse
             bb.computeDefAndLiveUse();
         }
-        boolean changed = true;
+        boolean changed;
         do {
             changed = false;
             for (BasicBlock bb : bbs) {
@@ -206,7 +305,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
                 if (bb.liveIn.addAll(bb.liveOut))
                     changed = true;
                 for (int i = 0; i < 2; i++) {
-                    if (bb.next[i] >= 0) { // Not RETURN
+                    if (bb.next[i] >= 0) {
                         bb.liveOut.addAll(bbs.get(bb.next[i]).liveIn);
                     }
                 }
@@ -260,7 +359,7 @@ public class FlowGraph implements Iterable<BasicBlock> {
             }
         }
 
-        // set new bbNum for all Tacs
+        // set new bbNum for all basic blocks
         Map<Integer, Integer> newBBNum = new HashMap<Integer, Integer>();
         int sz = 0;
         int i = 0;

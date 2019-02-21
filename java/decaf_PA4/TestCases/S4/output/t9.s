@@ -421,7 +421,6 @@ _L72:
           la    $t0, _Base              
           lw    $t1, 4($fp)             
           lw    $t2, 0($t1)             
-          sw    $t1, 4($fp)             
           sw    $t0, -56($fp)           
           sw    $t2, -60($fp)           
 _L73:                                   

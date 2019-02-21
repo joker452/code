@@ -85,6 +85,7 @@ if __name__ == '__main__':
         # Check the result
         reference = read_txt_file(os.path.join('result', bname + '.result'))
         our_result = read_txt_file(os.path.join('output', bname + '.result'))
+
         if du_chain_pass and reference == our_result:
             info = 'OK :)'
         else:

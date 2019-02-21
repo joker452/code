@@ -2,6 +2,7 @@ package decaf.tac;
 
 import java.util.Set;
 
+import decaf.dataflow.Pair;
 import decaf.utils.MiscUtils;
 
 public class Tac {
@@ -38,12 +39,48 @@ public class Tac {
 	public int bbNum;
 
 	public Set<Temp> liveOut;
-	
+
+	public Set<Integer> DU;
+
 	public Set<Temp> saves;
 	
 	private static int allocateId() {
 		++cnt;
 		return cnt;
+	}
+
+	public boolean isGenerator() {
+		switch (opc) {
+			case ADD:
+			case SUB:
+			case MUL:
+			case DIV:
+			case MOD:
+			case LAND:
+			case LOR:
+			case GTR:
+			case GEQ:
+			case EQU:
+			case NEQ:
+			case LEQ:
+			case LES:
+			case NEG:
+			case LNOT:
+			case ASSIGN:
+			case INDIRECT_CALL:
+			case LOAD:
+			case LOAD_VTBL:
+			case DIRECT_CALL:
+			case RETURN:
+			case LOAD_STR_CONST:
+			case LOAD_IMM4:
+				if (op0 != null)
+					return true;
+				break;
+			default:
+				break;
+		}
+		return false;
 	}
 
 	private Tac(Kind opc, Temp op0) {
