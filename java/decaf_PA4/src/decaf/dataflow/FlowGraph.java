@@ -259,8 +259,9 @@ public class FlowGraph implements Iterable<BasicBlock> {
     }
 
     public void computedefDU(BasicBlock bb, BasicBlock next, Set<Temp> copyDef) {
-//        System.out.println(next.bb);
-//        System.out.println(bb.tacList.id);
+//        System.out.println(next.bbNum);
+//        if (bb.tacList.id == 39)
+//            System.out.println("start");
         ++next.visited;
 //        if (bb.bbNum == 16) {
 //            System.out.println(next.bbNum + " " + next.visited);
@@ -275,7 +276,8 @@ public class FlowGraph implements Iterable<BasicBlock> {
             }
         }
         copyDef.removeAll(next.redef);
-        for (int i = 0; i < 2; ++i) {
+        int i = (next.next[0] == next.next[1]) ? 1: 0;
+        for (; i < 2; ++i) {
             if (!copyDef.isEmpty() && next.next[i] >= 0) {
                 Set<Temp> copy = new TreeSet<Temp>(Temp.ID_COMPARATOR);
                 copy.addAll(copyDef);
