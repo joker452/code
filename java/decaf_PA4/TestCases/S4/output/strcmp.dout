@@ -1,14 +1,9 @@
 FUNCTION _Main_New : 
 BASIC BLOCK 0 : 
   Def     = [ _T4 _T5 _T6 ]
-  defDU   = [ ]
-  redef   = [ _T4 _T5 _T6 ]
-  liveUseDU = [ ]
   liveUse = [ ]
   liveIn  = [ ]
-  liveInDU = [ ]
   liveOut = [ ]
-  liveOutDU = [ ]
     1 _T4 = 4 [ _T4 ]
     2 parm _T4 [ ]
     3 _T5 =  call _Alloc [ _T5 ]
@@ -19,14 +14,9 @@ END BY RETURN, result = _T5
 FUNCTION _Main.compareString : 
 BASIC BLOCK 0 : 
   Def     = [ _T7 ]
-  defDU   = [ ]
-  redef   = [ _T7 ]
-  liveUseDU = [ (7, _T0) (8, _T1) ]
   liveUse = [ _T0 _T1 ]
   liveIn  = [ _T0 _T1 ]
-  liveInDU = [ (7, _T0) (13, _T0) (8, _T1) (14, _T1) ]
   liveOut = [ _T0 _T1 ]
-  liveOutDU = [ (13, _T0) (14, _T1) ]
     7 parm _T0 [ _T0 _T1 ]
     8 parm _T1 [ _T0 _T1 ]
     9 _T7 =  call _StringEqual [ _T0 _T1 _T7 ]
@@ -34,26 +24,16 @@ END BY BEQZ, if _T7 =
     0 : goto 2; 1 : goto 1
 BASIC BLOCK 1 : 
   Def     = [ _T8 ]
-  defDU   = [ ]
-  redef   = [ _T8 ]
-  liveUseDU = [ ]
   liveUse = [ ]
   liveIn  = [ ]
-  liveInDU = [ ]
   liveOut = [ ]
-  liveOutDU = [ ]
     11 _T8 = "Equal" [ _T8 ]
 END BY RETURN, result = _T8
 BASIC BLOCK 2 : 
   Def     = [ _T9 _T10 ]
-  defDU   = [ ]
-  redef   = [ _T9 _T10 ]
-  liveUseDU = [ (13, _T0) (14, _T1) ]
   liveUse = [ _T0 _T1 ]
   liveIn  = [ _T0 _T1 ]
-  liveInDU = [ (13, _T0) (14, _T1) ]
   liveOut = [ ]
-  liveOutDU = [ ]
     13 parm _T0 [ _T1 ]
     14 parm _T1 [ ]
     15 _T9 =  call _StringEqual [ _T9 ]
@@ -62,51 +42,31 @@ END BY BEQZ, if _T10 =
     0 : goto 4; 1 : goto 3
 BASIC BLOCK 3 : 
   Def     = [ _T11 ]
-  defDU   = [ ]
-  redef   = [ _T11 ]
-  liveUseDU = [ ]
   liveUse = [ ]
   liveIn  = [ ]
-  liveInDU = [ ]
   liveOut = [ ]
-  liveOutDU = [ ]
     18 _T11 = "Unequal" [ _T11 ]
 END BY RETURN, result = _T11
 BASIC BLOCK 4 : 
   Def     = [ _T12 ]
-  defDU   = [ ]
-  redef   = [ _T12 ]
-  liveUseDU = [ ]
   liveUse = [ ]
   liveIn  = [ ]
-  liveInDU = [ ]
   liveOut = [ ]
-  liveOutDU = [ ]
     20 _T12 = "The impossible happens!" [ _T12 ]
 END BY RETURN, result = _T12
 BASIC BLOCK 5 : 
   Def     = [ ]
-  defDU   = [ ]
-  redef   = [ ]
-  liveUseDU = [ ]
   liveUse = [ ]
   liveIn  = [ ]
-  liveInDU = [ ]
   liveOut = [ ]
-  liveOutDU = [ ]
 END BY RETURN, void result
 
 FUNCTION _Main.printCompareString : 
 BASIC BLOCK 0 : 
   Def     = [ _T13 _T14 _T15 _T16 _T17 ]
-  defDU   = [ ]
-  redef   = [ _T13 _T14 _T15 _T16 _T17 ]
-  liveUseDU = [ (26, _T2) (36, _T2) (31, _T3) (37, _T3) ]
   liveUse = [ _T2 _T3 ]
   liveIn  = [ _T2 _T3 ]
-  liveInDU = [ (26, _T2) (36, _T2) (31, _T3) (37, _T3) ]
   liveOut = [ ]
-  liveOutDU = [ ]
     23 _T13 = "\"" [ _T2 _T3 _T13 ]
     24 parm _T13 [ _T2 _T3 ]
     25 call _PrintString [ _T2 _T3 ]
@@ -133,14 +93,9 @@ END BY RETURN, void result
 FUNCTION main : 
 BASIC BLOCK 0 : 
   Def     = [ _T18 _T19 _T20 _T21 _T22 _T23 ]
-  defDU   = [ ]
-  redef   = [ _T18 _T19 _T20 _T21 _T22 _T23 ]
-  liveUseDU = [ ]
   liveUse = [ ]
   liveIn  = [ ]
-  liveInDU = [ ]
   liveOut = [ ]
-  liveOutDU = [ ]
     45 _T18 = "Jobs" [ _T18 ]
     46 _T19 = "Gates" [ _T18 _T19 ]
     47 parm _T18 [ _T19 ]

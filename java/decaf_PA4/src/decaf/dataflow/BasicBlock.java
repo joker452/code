@@ -163,7 +163,6 @@ public class BasicBlock {
                 case LOAD_IMM4:
                     /* def op0 */
                     if (tac.op0 != null) {  // in DIRECT_CALL with return type VOID,
-                        // tac.op0 is null
                         if (tac.op0.lastVisitedBB != bbNum) {
                             def.add(tac.op0);
                             tac.op0.lastVisitedBB = bbNum;
@@ -281,6 +280,7 @@ public class BasicBlock {
                                 usages.add(current.id);
                             break;
                         default:
+
                             /* BRANCH MEMO MARK */
                             break;
                     }
@@ -315,7 +315,6 @@ public class BasicBlock {
             // let LiveIn equal LiveOut, then remove Def and add LiveUse
             tac.prev.liveOut = new HashSet<Temp>(tac.liveOut);
             switch (tac.opc) {
-                // 13
                 case ADD:
                 case SUB:
                 case MUL:
@@ -334,7 +333,6 @@ public class BasicBlock {
                     tac.prev.liveOut.add(tac.op1);
                     tac.prev.liveOut.add(tac.op2);
                     break;
-                // 5
                 case NEG:
                 case LNOT:
                 case ASSIGN:
@@ -344,7 +342,6 @@ public class BasicBlock {
                     tac.prev.liveOut.remove(tac.op0);
                     tac.prev.liveOut.add(tac.op1);
                     break;
-                // 5
                 case LOAD_VTBL:
                 case DIRECT_CALL:
                 case RETURN:
@@ -405,14 +402,9 @@ public class BasicBlock {
     public void printLivenessTo(PrintWriter pw) {
         pw.println("BASIC BLOCK " + bbNum + " : ");
         pw.println("  Def     = " + toString(def));
-        pw.println("  defDU   = " + printPair(defDU));
-        pw.println("  redef   = " + toString(redef));
-        pw.println("  liveUseDU = " + printPair(liveUseDU));
         pw.println("  liveUse = " + toString(liveUse));
         pw.println("  liveIn  = " + toString(liveIn));
-        pw.println("  liveInDU = " + printPair(liveInDU));
         pw.println("  liveOut = " + toString(liveOut));
-        pw.println("  liveOutDU = " + printPair(liveOutDU));
         for (Tac t = tacList; t != null; t = t.next) {
             pw.println("    " + t.id + " " + t + " " + toString(t.liveOut));
         }
