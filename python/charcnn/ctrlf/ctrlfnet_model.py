@@ -1,4 +1,5 @@
 import torch
+import logging
 import torch.nn as nn
 from torch.autograd import Variable
 import math
@@ -58,22 +59,25 @@ class EmbeddingNet(nn.Module):
 
 
 class CtrlFNet(torch.nn.Module):
-    def __init__(self, opt):
+    def __init__(self, opt, logger):
         super(CtrlFNet, self).__init__()
         utils.ensureopt(opt, 'mid_box_reg_weight')
         utils.ensureopt(opt, 'mid_objectness_weight')
         utils.ensureopt(opt, 'end_box_reg_weight')
         utils.ensureopt(opt, 'end_objectness_weight')
-        utils.ensureopt(opt, 'embedding_weight')
+        # change: remove embedding_weight
+        #utils.ensureopt(opt, 'embedding_weight')
         utils.ensureopt(opt, 'box_reg_decay')
 
         self.opt = opt
-        self.emb2desc = {'dct': 108, 'phoc': 540}
-        self.embedding_dim = self.emb2desc[self.opt.embedding]
+        # change: remove embedding items
+        # self.emb2desc = {'dct': 108, 'phoc': 540}
+        # self.embedding_dim = self.emb2desc[self.opt.embedding]
 
         # output from bilinear interpolation, ensures that the output from layer4 is 2 x 5
         # TODO: infer one from the other, and also investigate different sizes?
         output_size = (8, 20)
+        # default 34
         if opt.num_layers == 34:
             input_dim = 128
         elif opt.num_layers == 50:
@@ -82,7 +86,8 @@ class CtrlFNet(torch.nn.Module):
         self.opt.output_size = output_size
         self.opt.input_dim = input_dim
         self.opt.cnn_dim = 512
-        self.opt.contrastive_loss = self.opt.embedding_loss == 'cosine_embedding'
+        # fix: remove if rt embedding
+        self.opt.contrastive_loss = 0
 
         x0, y0 = 0.0, 0.0
         sx, sy = 1.0, 1.0
@@ -94,11 +99,12 @@ class CtrlFNet(torch.nn.Module):
             sx = 2 * sx
             sy = 2 * sy
 
-        print(x0, y0, sx, sy)
+        logger.debug("x0 y0 sx sy in CtrlFNet init {},{},{},{}".format(x0, y0, sx, sy))
         self.opt.field_centers = (x0, y0, sx, sy)
 
         # First part of resnet
-        # BasicBlock, [3, 4, 6, 3]
+        # BasicBlock a nn.Module, [3, 4, 6, 3]
+        # note here basic block not initialization, only return class
         block, layers = self.get_block_and_layers(opt.num_layers)
         self.inplanes = 64
         # 27->14
@@ -111,32 +117,39 @@ class CtrlFNet(torch.nn.Module):
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
 
-        print(self.layer1)
-        print(self.layer2)
+        # logger.debug("layer1 of ResNet")
+        # print(self.layer1)
+        # logger.debug("layer2 of ResNet")
+        # print(self.layer2)
         # Localization layer
         self.localization_layer = LocalizationLayer(self.opt)
-        print(self.localization_layer)
+        # logger.debug("localization layer")
+        # print(self.localization_layer)
         # Rest of resnet
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        print(self.layer3)
-        print(self.layer4)
+        # logger.debug("layer3 of ResNet")
+        # print(self.layer3)
+        # logger.debug("layer4 of ResNet")
+        # print(self.layer4)
         self.bn2 = nn.BatchNorm2d(512 * block.expansion)
         self.avgpool = nn.AvgPool2d((2, 5))
         self.fc = nn.Linear(512 * block.expansion, 512 * block.expansion)
-        print(self.fc)
         self.fc.bias.data.zero_()
 
         # Initialize resnet weights
+        # nothing special?
         self.init_weights()
 
         # Initialize localization_layer weights
+        # nothing special?
         if opt.init_weights:
             self.localization_layer.init_weights()
 
         # Final box scoring layer
         self.box_scoring_branch = nn.Linear(512 * block.expansion, 2)
-        print(self.box_scoring_branch)
+        # logger.debug("final box scoring layer")
+        # print(self.box_scoring_branch)
         #        else:
         #            self.box_scoring_branch = nn.Linear(512 * block.expansion, 1)
         if opt.init_weights:
@@ -146,20 +159,21 @@ class CtrlFNet(torch.nn.Module):
         # Final box regression layer
         self.apply_box_transform = ApplyBoxTransform()
         self.box_reg_branch = nn.Linear(512 * block.expansion, 4)
-        print(self.box_reg_branch)
+        # logger.debug("final box reg layer")
+        # print(self.box_reg_branch)
         self.box_reg_branch.weight.data.zero_()
         self.box_reg_branch.bias.data.zero_()
-
+        # change remove rt embedding
         # Embedding Net
-        self.emb_opt = easydict.EasyDict({'ni': 512 * block.expansion,
-                                          'nh': self.opt.emb_fc_size,
-                                          'embedding_dim': self.embedding_dim,
-                                          'n_hidden': self.opt.embedding_net_layers,
-                                          'embedding_loss': self.opt.embedding_loss})
-        self.embedding_net = EmbeddingNet(self.emb_opt)
-        print(self.embedding_net)
-        if opt.init_weights:
-            self.embedding_net.init_weights(self.opt.std)
+
+        # self.emb_opt = easydict.EasyDict({'ni': 512 * block.expansion,
+        #                                   'nh': self.opt.emb_fc_size,
+        #                                   'embedding_dim': self.embedding_dim,
+        #                                   'n_hidden': self.opt.embedding_net_layers,
+        #                                   'embedding_loss': self.opt.embedding_loss})
+        # self.embedding_net = EmbeddingNet(self.emb_opt)
+        # if opt.init_weights:
+            # self.embedding_net.init_weights(self.opt.std)
 
         # Losses
         #        if self.opt.end_ce:
@@ -169,12 +183,12 @@ class CtrlFNet(torch.nn.Module):
 
         self.box_reg_loss = BoxRegressionCriterion(self.opt.end_box_reg_weight)
         print(self.box_reg_loss)
-        if self.opt.embedding_loss == 'cosine':
-            self.embedding_loss = nn.CosineEmbeddingLoss(self.opt.cosine_margin)
-        elif self.opt.embedding_loss == 'cosine_embedding':
-            self.embedding_loss = nn.CosineEmbeddingLoss(self.opt.cosine_margin)
-        elif self.opt.embedding_loss == 'BCE':
-            self.embedding_loss = myMultiLabelSoftMarginLoss()
+        # if self.opt.embedding_loss == 'cosine':
+        #     self.embedding_loss = nn.CosineEmbeddingLoss(self.opt.cosine_margin)
+        # elif self.opt.embedding_loss == 'cosine_embedding':
+        #     self.embedding_loss = nn.CosineEmbeddingLoss(self.opt.cosine_margin)
+        # elif self.opt.embedding_loss == 'BCE':
+        #     self.embedding_loss = myMultiLabelSoftMarginLoss()
 
     def load_weights(self, weight_file):
         if weight_file:
@@ -239,19 +253,12 @@ class CtrlFNet(torch.nn.Module):
 
         return a
 
-    def finetune_embedding(self):
-        for p in self.parameters():
-            p.requires_grad = False
-
-        for p in self.embedding_net.parameters():
-            p.requires_grad = True
-
     def _eval_helper(self, image, boxes, final_adjust_boxes):
         """
         Feeds boxes through the network in batches so that we aren't limited
         by the GPU memory when it comes to number of boxes at test time.
         """
-        embed, scores, tboxes = [], [], []
+        scores, tboxes = [], []
         for v in boxes.split(self.opt.test_batch_size):
             roi_feats = self.localization_layer.eval_boxes((image, Variable(v.cuda(), volatile=True)))
             roi_feats = self.layer3(roi_feats)
@@ -262,18 +269,15 @@ class CtrlFNet(torch.nn.Module):
             roi_feats = roi_feats.view(roi_feats.size(0), -1)
             roi_codes = self.fc(roi_feats)
             s = self.box_scoring_branch(roi_codes).cpu()
-            e = self.embedding_net(roi_codes).cpu()
             if final_adjust_boxes:
                 box_trans = self.box_reg_branch(roi_codes)
                 b = self.apply_box_transform((v, box_trans.data)).cpu()
                 tboxes.append(b)
 
-            embed.append(e.data)
             scores.append(s.data)
 
-        embed = torch.cat(embed, dim=0)
         scores = torch.cat(scores, dim=0)
-        out = (scores, embed)
+        out = (scores, )
         if final_adjust_boxes:
             tboxes = torch.cat(tboxes, dim=0)
             out += (tboxes,)
@@ -304,9 +308,8 @@ class CtrlFNet(torch.nn.Module):
         image = self.layer1(image)
         image = self.layer2(image)
         roi_boxes = self.localization_layer(image)
-        gt_scores, gt_embed = self._eval_helper(image, gt_boxes, False)
-        roi_scores, roi_embed, roi_boxes = self._eval_helper(image, roi_boxes.data, True)
-        proposal_scores, proposal_embed = self._eval_helper(image, proposals, False)
+        roi_scores, roi_boxes = self._eval_helper(image, roi_boxes.data, True)
+        proposal_scores = self._eval_helper(image, proposals, False)
 
         # Convert to x1y1x2y2
         roi_boxes = box_utils.xcycwh_to_x1y1x2y2(roi_boxes)
@@ -315,23 +318,18 @@ class CtrlFNet(torch.nn.Module):
             roi_scores = roi_scores.cpu()
             proposal_scores = proposal_scores.cpu()
             roi_boxes = roi_boxes.cpu()
-            roi_embed = roi_embed.cpu()
-            gt_embed = gt_embed.cpu()
-            proposal_embed = proposal_embed.cpu()
+
 
         if numpy:
             # Convert to numpy array
             roi_scores = roi_scores.cpu().numpy()
             proposal_scores = proposal_scores.cpu().numpy()
             roi_boxes = roi_boxes.cpu().numpy()
-            roi_embed = roi_embed.cpu().numpy()
-            gt_embed = gt_embed.cpu().numpy()
-            proposal_embed = proposal_embed.cpu().numpy()
 
         roi_scores = roi_scores[:, 1]
         proposal_scores = proposal_scores[:, 1]
 
-        out = (roi_scores, proposal_scores, roi_boxes, roi_embed, gt_embed, proposal_embed)
+        out = (roi_scores, proposal_scores, roi_boxes)
         return out
 
     def forward(self, input):
@@ -341,7 +339,7 @@ class CtrlFNet(torch.nn.Module):
             raise NotImplementedError("Don't call forward with model in eval mode, use evaluate instead")
 
     def _forward_train(self, input):
-        image, gt_boxes, gt_embedding = input[0], input[1], input[2]
+        image, gt_boxes = input[0], input[1]
         image = self.conv1(image)
         image = self.bn1(image)
         image = self.relu(image)
@@ -349,11 +347,12 @@ class CtrlFNet(torch.nn.Module):
         image = self.layer1(image)
         image = self.layer2(image)
         # 1, 128, 215, 133
-        ll_in = (image, gt_boxes, gt_embedding)
+        ll_in = (image, gt_boxes)
+        # fix this after remove label from dataset
         if self.opt.dtp_train:
-            ll_in += (input[3],)
+            ll_in += (input[2],)
 
-        roi_feats, roi_boxes, pos_target_boxes, pos_target_embeddings, y, mid_loss = \
+        roi_feats, roi_boxes, pos_target_boxes, mid_loss, num_pos = \
             self.localization_layer(ll_in)
         roi_feats = self.layer3(roi_feats)
 
@@ -366,7 +365,6 @@ class CtrlFNet(torch.nn.Module):
 
         # scores are based on roi_codes
         scores = self.box_scoring_branch(roi_codes)
-        num_pos = pos_target_embeddings.size(0)
         pos_roi_codes = roi_codes[:num_pos]
         pos_roi_boxes = roi_boxes[:num_pos]
 
@@ -382,25 +380,34 @@ class CtrlFNet(torch.nn.Module):
             # do transformation again for positive boxes
             boxes = self.apply_box_transform((pos_roi_boxes, box_trans))
 
-        embed = self.embedding_net(pos_roi_codes)
-        return (scores, pos_roi_boxes, box_trans, boxes, embed, pos_target_boxes,
-                pos_target_embeddings, y, mid_loss)
+        #embed = self.embedding_net(pos_roi_codes)
+        return (scores, pos_roi_boxes, box_trans, boxes, pos_target_boxes,
+                mid_loss)
 
-    def forward_backward(self, data, gpu):
+    def forward_backward(self, logger, data, gpu):
         self.train()
-        # [1, 1, 1720, 1032]  [1, 260, 4] [1, 260, 108]
-        img, gt_boxes, gt_embeddings = data[0], data[1], data[2]
 
+        # [1, 1, 1720, 1032]  [1, 260, 4] [1, 260, 108]
+        # logger.debug(len(data))
+        # logger.debug('*' * 50)
+        # logger.debug(data[0])
+        # logger.debug('*' * 50)
+        # logger.debug(data[1])
+        # logger.debug('*' * 50)
+        # logger.debug(data[2])
+        img, gt_boxes = data[0], data[1]
+        logger.debug(img.size())
         if gpu:
             img = img.cuda()
             gt_boxes = gt_boxes.cuda()
-            gt_embeddings = gt_embeddings.cuda()
 
-        input = (img, gt_boxes.float(), gt_embeddings.float())
+        input = (img, gt_boxes.float())
+        # set localizatin layer image size
         self.setImageSize(img.size(2), img.size(3))
 
         if self.opt.dtp_train:
-            dtp = data[4]
+            # fix this after remove label from dataset
+            dtp = data[3]
             if gpu:
                 dtp = dtp.cuda()
 
@@ -409,12 +416,10 @@ class CtrlFNet(torch.nn.Module):
         out = self.forward(input)
         wordness_scores = out[0]
         pos_roi_boxes = out[1]
+        predict_boxes = out[3]
         final_box_trans = out[2]
-        emb_output = out[4]
-        gt_boxes = out[5]
-        gt_embeddings = out[6]
-        y = out[7]
-        mid_loss = out[8]
+        gt_boxes = out[4]
+        mid_loss = out[5]
 
         num_boxes = wordness_scores.size(0)
         num_pos = pos_roi_boxes.size(0)
@@ -437,12 +442,9 @@ class CtrlFNet(torch.nn.Module):
         # this one multiplies by the weight inside the loss so we don't do it manually.
         end_box_reg_loss = self.box_reg_loss.forward((pos_roi_boxes, final_box_trans), gt_boxes)
 
-        embedding_loss = self.embedding_loss.forward(emb_output, gt_embeddings, y) \
-                         * self.opt.embedding_weight
-
-        total_loss = mid_loss + end_objectness_loss + end_box_reg_loss + embedding_loss
+        total_loss = mid_loss + end_objectness_loss + end_box_reg_loss
         total_loss.backward()
-
+        #print(total_loss)
         ll_losses = self.localization_layer.stats.losses
         losses = {
             'mo': ll_losses.obj_loss_pos.cpu() + ll_losses.obj_loss_neg.cpu(),
@@ -450,11 +452,10 @@ class CtrlFNet(torch.nn.Module):
             'mbr': ll_losses.box_reg_loss.cpu(),
             'eo': end_objectness_loss.data.cpu(),
             'ebr': end_box_reg_loss.data.cpu(),
-            'e': embedding_loss.data.cpu(),
             'total_loss': total_loss.data.cpu(),
         }
 
         for k, v in losses.items():
             losses[k] = v.item()
 
-        return losses
+        return losses, predict_boxes

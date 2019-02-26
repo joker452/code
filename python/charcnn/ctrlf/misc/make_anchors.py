@@ -55,6 +55,7 @@ class MakeAnchors(torch.nn.Module):
         xc = x_centers.view(1, 1, 1, W).expand(N, k, H, W)
         yc = y_centers.view(1, 1, H, 1).expand(N, k, H, W)
 
+        # default False
         if self.tunable_anchors:
             w = self.anchors[0].view(1, k, 1, 1).expand(N, k, H, W)
             h = self.anchors[1].view(1, k, 1, 1).expand(N, k, H, W)

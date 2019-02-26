@@ -41,16 +41,21 @@ class BoxSampler(nn.Module):
 
     def forward(self, input):
         input_boxes, target_boxes = input
+        # B1 = k * H * W
+        # B2 = number of words
         N, B1, B2 = self.unpack_dims(input_boxes, target_boxes)
         # For now, only support batch size of 1
         input_boxes = input_boxes.view(B1, 4)
         target_boxes = target_boxes.view(B2, 4)
         # N x B1 x B2
+        # 1 X B1 x B2 overlaps between B1 input boxes and B2 gt boxes
         ious = boxIoU.boxIoU(input_boxes, target_boxes).view(N, B1, B2)
         # N x B1
+        # find the input boxes having max overlap with each gt box
         input_max_iou, input_idx = torch.max(ious, dim=2)
         # input_max_iou = input_max_iou.view(N, B1)
         # N x B2
+        # find the gt boxes having max overlap with each input box
         _, target_idx = torch.max(ious, dim=1)
         # target_max_iou = target_max_iou.view(N, B2)
         # N x B1
@@ -107,6 +112,9 @@ class BoxSampler(nn.Module):
         total_neg = neg_mask_nonzero.size(0)
         num_pos = min(self.batch_size // 2, total_pos)
         num_neg = self.batch_size - num_pos
+        print("in box_sampler, total_pos:{}, num_pos:{}, total_neg:{}, num_neg:{}".format(total_pos,
+                                                                                          num_pos, total_neg,
+                                                                                          num_neg))
         pos_p = torch.ones(total_pos)
         neg_p = torch.ones(total_neg)
         # sample num_pos boxes from total_positive
@@ -135,6 +143,6 @@ class BoxSampler(nn.Module):
         # find the corresponding target box indexes
         pos_target_idx = input_idx.view(-1)[pos_input_idx].view(num_pos)
         neg_input_idx = neg_mask_nonzero[neg_sample_idx]
-        print(pos_input_idx.shape, pos_target_idx.shape, neg_input_idx.shape)
+        #print(pos_input_idx.shape, pos_target_idx.shape, neg_input_idx.shape)
         output = (pos_input_idx, pos_target_idx, neg_input_idx)
         return output

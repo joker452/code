@@ -24,7 +24,6 @@ class H5Dataset(Dataset):
         root += '%s/' % self.dataset
             
         self.debug_max_train_images = utils.getopt(opt, 'debug_max_train_images', -1)
-        self.embedding = utils.getopt(opt, 'embedding')
         self.fold = utils.getopt(opt, 'fold')
         self.image_size = opt.image_size
         self.split_num = split
@@ -57,7 +56,7 @@ class H5Dataset(Dataset):
             print('DataLoader loading json file: ', self.json_file)
         with open(self.json_file, 'r') as f:
             self.info = json.load(f)
-            
+
         self.vocab_size = len(self.info['itow'])
         
         #Convert keys in idx_to_token from string to integer
@@ -74,18 +73,7 @@ class H5Dataset(Dataset):
         self.bins=len(self.alphabet) * 2
         self.ngrams=2
         self.unigram_levels = list(range(1, 6))
-        self.emb_func = getattr(emb, opt.embedding)
         self.args = (self.resolution, self.alphabet)
-        if opt.embedding == 'ngram_dct':
-            self.args += (self.ngrams, self.bins)
-        elif opt.embedding == 'phoc':
-            self.args = (self.alphabet, self.unigram_levels)
-            
-        if opt.embedding_loss == 'phocnet':
-            self.wtoe = {w:self.emb_func(w, *self.args) for i, w in self.itow.items()} #word embedding table
-        else:
-            self.wtoe = {w:self.normalize(self.emb_func(w, *self.args)) for i, w in self.itow.items()} #word embedding table
-        
         self.iam = self.dataset == 'iam'
         if self.iam:
             with open('data/iam/stopwords.txt') as f:
@@ -105,7 +93,6 @@ class H5Dataset(Dataset):
         self.img_to_first_box = self.h5_file.get('img_to_first_box').value
         self.img_to_last_box = self.h5_file.get('img_to_last_box').value
         self.labels = self.h5_file.get('labels').value - 1
-        self.word_embedding = self.h5_file.get(self.embedding + '_word_embeddings').value
         self.img_to_first_rp = self.h5_file.get('img_to_first_rp').value
         self.img_to_last_rp = self.h5_file.get('img_to_last_rp').value
         self.original_heights = self.h5_file.get('original_heights').value
@@ -188,7 +175,7 @@ class H5Dataset(Dataset):
         r0 = self.img_to_first_box[ix] # - 1  #for python, start from zero, 
         r1 = self.img_to_last_box[ix] #Nothing needed here since lua = inclusive, python exclusive
   
-        embeddings = self.word_embedding[r0:r1]
+
         box_batch = self.boxes[r0:r1].copy()
 #        box_batch[:, :2] -= 1
         labels = self.labels[r0:r1]
@@ -200,7 +187,7 @@ class H5Dataset(Dataset):
         ow, oh = self.original_widths[ix], self.original_heights[ix]
 
         if split == 0:
-            out = (img, box_batch, embeddings, labels)
+            out = (img, box_batch, labels)
             if self.dtp_train:
                 r0 = self.img_to_first_rp[ix] #- 1 #Same as with img_to_first_box
                 r1 = self.img_to_last_rp[ix]
@@ -213,7 +200,7 @@ class H5Dataset(Dataset):
             r1 = self.img_to_last_rp[ix]
             region_proposals = self.h5_file.get('/region_proposals')[r0:r1].copy()
             region_proposals[:, :2] -= 1
-            out = img, (oh, ow), box_batch, region_proposals, embeddings, labels
+            out = img, (oh, ow), box_batch, region_proposals, labels
             
         return out
 

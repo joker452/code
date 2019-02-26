@@ -77,27 +77,6 @@ class BoxSamplerHelper(torch.nn.Module):
         pos_target_idx = idxs[1]
         neg_input_idx = idxs[2]
 
-        n = pos_target_idx.size(0)
-        y = torch.autograd.Variable(torch.ones(n), requires_grad=False)
-        y = y.float()
-        if input_boxes.is_cuda:
-            y = y.cuda()
-
-        # Inject mismatching pairs for the cosine embedding loss here, and save which pairs are mismatched
-        if self.contrastive_loss:
-            frac = 0.2  # The fraction of how many negative pairs are injected
-            z = torch.rand(n).lt(frac)
-            if input_boxes.data.is_cuda:
-                z = z.cuda()
-
-            y[z] = -1
-            p = torch.ones(target_boxes.size(1))
-
-            # Randomly select other word embeddings from the same page.
-            modified_pos_target_idx = pos_target_idx.clone()
-            if z.sum() > 0:
-                modified_pos_target_idx[z] = torch.multinomial(p, z.sum(), replacement=True).type(pos_target_idx.type())
-
         # Resize the output. We need to allocate additional tensors for the
         # input data and target data, then resize them to the right size.
         num_pos = pos_input_idx.size(0)
@@ -114,16 +93,10 @@ class BoxSamplerHelper(torch.nn.Module):
         for i in range(len(target_data)):
             d = target_data[i]
             D = d.size(2)
-            # For the ground truth embeddings, inject the mismatching pairs
-            if self.contrastive_loss:
-                if i == 1:
-                    target.append(d[:, modified_pos_target_idx].view(num_pos, D))
-                else:  # For the ground truth boxes, use the correct pos_target_idx
-                    target.append(d[:, pos_target_idx].view(num_pos, D))
-            else:
-                target.append(d[:, pos_target_idx].view(num_pos, D))
 
-        output = (pos, target, neg, y)
+            target.append(d[:, pos_target_idx].view(num_pos, D))
+
+        output = (pos, target, neg)
         if self.return_index:
             output += (idxs,)
         return output

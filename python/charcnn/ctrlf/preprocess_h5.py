@@ -38,7 +38,7 @@ def extract_dtp(datum):
     C_range = list(range(3, 50, 5))  # horizontal range
     R_range = list(range(3, 50, 5))  # vertical range
     region_proposals, _ = dl.find_regions(img, threshold_range, C_range, R_range)
-    region_proposals, _ = utils.unique_boxes(region_proposals)
+    region_proposals = utils.unique_boxes(region_proposals)
     datum['region_proposals'] = region_proposals.tolist()
 
 

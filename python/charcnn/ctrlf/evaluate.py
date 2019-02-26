@@ -87,7 +87,7 @@ def extract_features(model, loader, args, numpy=True):
     outputs = []    
     model.eval()
     for data in loader:
-        (img, oshape, gt_boxes, external_proposals, gt_embeddings, gt_labels) = data
+        (img, oshape, gt_boxes, external_proposals, gt_labels) = data
         
         if args.max_proposals == -1:
             model.setTestArgs({'rpn_nms_thresh':args.rpn_nms_thresh,'max_proposals':external_proposals.size(1)})
@@ -248,7 +248,8 @@ def postprocessing(features, loader, args, model):
             dtp_proposals = dtp_proposals[tmp[nrpn:]].view(-1, 4)
             recalls(dtp_proposals, gt_boxes, overlap_thresholds, entry, '2_dtp')
             recalls(rpn_proposals, gt_boxes, overlap_thresholds, entry, '2_rpn')
-
+        print(proposals.float())
+        print(scores)
         dets = torch.cat([proposals.float(), scores], 1)   
         if dets.size(0) <= 1:
             continue

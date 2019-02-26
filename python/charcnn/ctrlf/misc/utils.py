@@ -64,9 +64,9 @@ def unique_boxes(boxes):
     ncols = tmp.shape[1]
     dtype = tmp.dtype.descr * ncols
     struct = tmp.view(dtype)
-    uniq, index = np.unique(struct, return_index=True)
+    uniq = np.unique(struct)
     tmp = uniq.view(tmp.dtype).reshape(-1, ncols)
-    return tmp, index
+    return tmp
 
     
 def filter_region_proposals(data, original_heights, original_widths, image_size):
@@ -95,8 +95,10 @@ def filter_region_proposals(data, original_heights, original_widths, image_size)
             if w > 0 and h > 0:
                 okay.append(box)
             
-        #Only keep unique proposals in downsampled coordinate system, i.e., remove aliases 
-        region_proposals, _ = unique_boxes(np.array(okay))
+        #Only keep unique proposals in downsampled coordinate system, i.e., remove aliases
+       # print("in utils.filter_region_proposals, before unique_boxes {}".format(len(box)))
+        region_proposals = unique_boxes(np.array(okay))
+        #print("in utils.filter_region_proposals, after unique_boxes {}".format(len(box)))
         datum['region_proposals'] = region_proposals
         
 def filter_ground_truth_boxes(data, image_size=1720):
@@ -142,10 +144,16 @@ def build_vocab(data):
         for r in datum['regions']:
             texts.append(r['label'])
   
-    vocab, indeces = np.unique(texts, return_index=True)
-    return vocab#, indeces
+   # vocab, indeces = np.unique(texts, return_index=True)
+    vocab = np.unique(texts)
+    return vocab #, indeces
 
 def pad_proposals(proposals, im_shape, pad=10):
+    '''
+    for dtp
+    (H,W)
+
+    '''
     props = []
     for p in proposals:
         pp = [max(0, p[0] - pad), max(0, p[1] - pad), min(im_shape[1], p[2] + pad), min(im_shape[0], p[3] + pad)]

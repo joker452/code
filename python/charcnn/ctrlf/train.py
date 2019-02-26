@@ -2,8 +2,13 @@ import warnings
 warnings.filterwarnings("ignore")
 import os
 import json
+# add by deng
+# add debug logger
+from PIL import Image, ImageDraw
+import logging
 import easydict
 import time
+import numpy as np
 import torch
 from misc.dataloader import DataLoader
 import torch.optim as optim
@@ -13,6 +18,10 @@ from train_opts import parse_args
 from evaluate import mAP
 import misc.h5_dataset as h5_dataset
 
+logging.basicConfig(level=logging.DEBUG,
+                    format='[%(asctime)s, %(levelname)s], %(message)s')
+logger_name = "ctrlf-debugger"
+logger = logging.getLogger(logger_name)
 opt = parse_args()
 os.environ['CUDA_VISIBLE_DEVICES'] = str(opt.gpu)
 
@@ -25,10 +34,12 @@ else:
     if opt.dataset.find('iiit_hws') > -1:
         trainset = datasets.SegmentedDataset(opt, 'train')
     else:
-        trainset = datasets.Dataset(opt, 'train')
-
-    valset = datasets.Dataset(opt, 'val')
-    testset = datasets.Dataset(opt, 'test')
+        trainset = datasets.Dataset(opt, 'train', logger)
+    # all have been resized!
+    # out = (img, boxes) train
+    # out = (img, oshape, boxes, proposals) not train
+    valset = datasets.Dataset(opt, 'val', logger)
+    testset = datasets.Dataset(opt, 'test', logger)
 sampler=datasets.RandomSampler(trainset, opt.max_iters)
 trainloader = DataLoader(trainset, batch_size=1, sampler=sampler, num_workers=0)
 valloader = DataLoader(valset, batch_size=1, shuffle=False, num_workers=0)
@@ -41,7 +52,7 @@ torch.set_default_tensor_type('torch.FloatTensor')
 torch.cuda.device(opt.gpu)
 
 # initialize the Ctrl-F-Net model object
-model = ctrlf.CtrlFNet(opt)
+model = ctrlf.CtrlFNet(opt, logger)
 
 show = not opt.quiet
 if show:
@@ -49,7 +60,7 @@ if show:
 
 model.cuda()
 optimizer = optim.Adam(model.parameters(), opt.learning_rate, (opt.beta1, opt.beta2),opt.epsilon, opt.weight_decay)
-keys = ['bd', 'e', 'ebr', 'eo', 'mbr', 'mo', 'total_loss']
+keys = ['bd', 'ebr', 'eo', 'mbr', 'mo', 'total_loss']
 running_losses = {k:0.0 for k in keys}
 
 it = 0
@@ -87,68 +98,64 @@ if opt.weights:
 if not os.path.exists('checkpoints/ctrlfnet/'):
     os.makedirs('checkpoints/ctrlfnet/')
     
-oargs = ('ctrlfnet', opt.embedding, opt.dataset, opt.fold, opt.save_id)
-out_name = 'checkpoints/%s/%s_%s_fold%d_%s_best_val.pt' % oargs
+oargs = ('ctrlfnet', opt.dataset, opt.fold, opt.save_id)
+out_name = 'checkpoints/%s/%s_%d_fold%s_best_val.pt' % oargs
+def test(img, boxes, i):
+    img = img * 255
+    img = img.astype(np.uint8)
+    im = Image.fromarray(img)
+    d = ImageDraw.Draw(im)
+    for box in boxes:
+        xc, yc, w, h = box[0], box[1], box[2], box[3]
+        d.rectangle([xc - w // 2, yc - h // 2, xc + w // 2, yc + h // 2], outline='white')
+    im.save("/data2/dengbowen/work/samples/ctrlf-out/{}.png".format(i))
+
 for data in trainloader:
+
     optimizer.zero_grad()
-    losses = model.forward_backward(data, True)
+    #test(data[0].cpu().numpy().squeeze(), data[1].cpu().numpy().squeeze(), it)
+
+    losses, predict_boxes = model.forward_backward(logger, data, True)
+    #logger.debug(losses)
     optimizer.step()
-    
-    # print statistics
+    #print statistics
     running_losses  = {k:v + losses[k] for k, v in running_losses.items()}
     if it % opt.print_every == opt.print_every - 1:
         running_losses  = {k:v / opt.print_every for k, v in running_losses.items()}
         loss_string = "[iter %5d] " % (it + 1)
         for k, v in running_losses.items():
-            loss_string += "%s: %.5f | " % (k , v)
-            
+           loss_string += "%s: %.5f | " % (k , v)
         trainlog += loss_string
         if show:
-            print(loss_string)
-        vals = [val[0] for val in list(running_losses.values())]
+           print(loss_string)
+        logger.debug("running_losses: {}".format(running_losses))
+        vals = [val for val in list(running_losses.values())]
         loss_history.append((it, vals))
         running_losses  = {k:0.0 for k, v in running_losses.items()}
-        
-    if it % opt.eval_every == opt.eval_every - 1:
-        log, rf, rt = mAP(model, valloader, args, it)
-        trainlog += log
-        if show:
-            print(log)
-        score = (rt.mAP_qbe_50 + rt.mAP_qbs_50) / 2
-        mAPs.append((it, [rt.mAP_qbe_50, rt.mAP_qbs_50]))
-        if score > best_score:
-            best_score = score
-            torch.save(model.state_dict(), out_name)
-            if show:
-                print('saving ' + out_name)
-            
-        d = {}
-        d['opt'] = opt
-        d['loss_history'] = loss_history
-        d['map_history'] = mAPs
-        d['trainlog'] = trainlog
-        with open(out_name + '.json', 'w') as f:
-            json.dump(d, f)
 
+    if it % opt.eval_every == opt.eval_every - 1:
+        predict_boxes_view = predict_boxes.detach().cpu().numpy()
+
+        test(data[0].cpu().numpy().squeeze(), predict_boxes_view, it)
     if it % opt.reduce_lr_every == opt.reduce_lr_every - 1:
         optimizer.param_groups[0]['lr'] /= 10.0
-        
+
     it += 1
 
-if show:
-    if opt.val_dataset != 'iam':
-        model.load_weights(out_name)
-        log, rf, rt = mAP(model, testloader, args, it)
-        print(log)
-        
-    d = {}
-    d['opt'] = opt
-    d['loss_history'] = loss_history
-    d['map_history'] = mAPs
-    d['trainlog'] = trainlog
-    d['testlog'] = log
-    with open(out_name + '.json', 'w') as f:
-        json.dump(d, f)
-    
-    duration = time.time() - start
-    print("training model took %0.2f hours" % (duration / 3600))
+# if show:
+#     if opt.val_dataset != 'iam':
+#         model.load_weights(out_name)
+#         log, rf, rt = mAP(model, testloader, args, it)
+#         print(log)
+#
+#     d = {}
+#     d['opt'] = opt
+#     d['loss_history'] = loss_history
+#     d['map_history'] = mAPs
+#     d['trainlog'] = trainlog
+#     d['testlog'] = log
+#     with open(out_name + '.json', 'w') as f:
+#         json.dump(d, f)
+#
+#     duration = time.time() - start
+#     print("training model took %0.2f hours" % (duration / 3600))

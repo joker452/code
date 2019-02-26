@@ -85,7 +85,7 @@ class RPN(nn.Module):
         # reshape transforms and apply to anchors
         # N x (D * k) x H x W-> N x (k * H * W) x D
         trans = self.reshape_box_features(bfeats)
-        # calculate new x, y, w, h
+        # calculate new x, y, w, h for anchor boxes
         boxes = self.apply_box_transform((anchors, trans))
 
         # Scores branch
@@ -182,7 +182,8 @@ class LocalizationLayer(nn.Module):
             return self._forward_test(input)
 
     def _forward_train(self, input):
-        cnn_features, gt_boxes, gt_embeddings = input[0], input[1], input[2]
+        cnn_features, gt_boxes = input[0], input[1]
+        # fix this
         if isinstance(cnn_features, Variable):
             gpu = cnn_features.data.is_cuda
         else:
@@ -195,29 +196,32 @@ class LocalizationLayer(nn.Module):
         self._called_forward_size = True
         N = cnn_features.size(0)
         assert N == 1, 'Only minibatches with N = 1 are supported'
-        B1 = gt_boxes.size(1)
+        # B1 is the number of words in this page
         assert gt_boxes.dim() == 3 and gt_boxes.size(0) == N and gt_boxes.size(2) == 4, \
             'gt_boxes must have shape (N, B1, 4)'
-        assert gt_embeddings.dim() == 3 and gt_embeddings.size(0) == N and gt_embeddings.size(1) == B1, \
-            'gt_embeddings must have shape (N, B1, L)'
 
         # Run the RPN forward
-        # (boxes, anchors, trans, scores)
+        # N x (D * k) x H x W-> N x (k * H * W) x D
+        # (boxes, anchors, trans, scores ,act_reg
+        # boxes: anchor boxes after regression in xc, yc, w, h, size are in original picture size!
+        # these four data are all in the last column
+        # anchors: original anchors
+        # trans: output from regression branch
+        # scores: output from score branch
         rpn_out, act_reg = self.rpn.forward(cnn_features)
 
         if self.opt.train_remove_outbounds_boxes == 1:
             bounds = {'x_min': 0, 'y_min': 0, 'x_max': self.image_width, 'y_max': self.image_height}
             self.box_sampler_helper.setBounds(bounds)
         # may return idx according to opt
-        sampler_out = self.box_sampler_helper.forward((rpn_out, (gt_boxes, gt_embeddings)))
+        sampler_out = self.box_sampler_helper.forward((rpn_out, (gt_boxes, )))
 
         # Unpack pos data
-        pos_data, pos_target_data = sampler_out[0], sampler_out[1]
-        neg_data, y = sampler_out[2], sampler_out[3]
+        pos_data, pos_target_data, neg_data = sampler_out
         pos_boxes, pos_anchors, pos_trans, pos_scores = pos_data
 
         # Unpack target data
-        pos_target_boxes, pos_target_labels = pos_target_data
+        pos_target_boxes = pos_target_data[0]
 
         # Unpack neg data (only scores matter)
         neg_boxes = neg_data[0]
@@ -267,23 +271,24 @@ class LocalizationLayer(nn.Module):
         self.stats.losses.box_reg_loss = reg_loss.data
 
         # Fish out the box regression loss
+        # Why act_reg?
         self.stats.losses.box_decay_loss = act_reg.data
 
         # Compute total loss
         total_loss = obj_loss_pos + obj_loss_neg + reg_loss + act_reg
         self.stats.losses.total_loss = total_loss.data
-
+        # fix target labels below!
         if self.dtp_train:
-            dtp_sampler_out = self.box_sampler_helper.forward(((input[3],), (gt_boxes, gt_embeddings)))
+            dtp_sampler_out = self.box_sampler_helper.forward(((input[3],), (gt_boxes, )))
             dtp_pos_data, dtp_pos_target_data, dtp_neg_data, dtp_y = dtp_sampler_out
             dtp_pos_boxes = dtp_pos_data[0]
             dtp_pos_target_boxes, dtp_pos_target_labels = dtp_pos_target_data
             dtp_neg_boxes = dtp_neg_data[0]
             pos_boxes = torch.cat((pos_boxes, dtp_pos_boxes), dim=0)
             neg_boxes = torch.cat((neg_boxes, dtp_neg_boxes), dim=0)
-            y = torch.cat((y, dtp_y), dim=0)
+            #y = torch.cat((y, dtp_y), dim=0)
             pos_target_boxes = torch.cat((pos_target_boxes, dtp_pos_target_boxes), dim=0)
-            pos_target_labels = torch.cat((pos_target_labels, dtp_pos_target_labels), dim=0)
+            #pos_target_labels = torch.cat((pos_target_labels, dtp_pos_target_labels), dim=0)
 
         # Concatentate pos_boxes and neg_boxes into roi_boxes
         roi_boxes = torch.cat((pos_boxes, neg_boxes), dim=0)
@@ -291,11 +296,14 @@ class LocalizationLayer(nn.Module):
         # Run the RoI pooling forward for roi_boxes
         self.roi_pooling.setImageSize(self.image_height, self.image_width)
         roi_features = self.roi_pooling.forward((cnn_features[0], roi_boxes))
-
-        output = (roi_features, roi_boxes, pos_target_boxes, pos_target_labels, y, total_loss)
+        # change remove pos_target_embedding
+        #output = (roi_features, roi_boxes, pos_target_boxes, pos_target_labels, y, total_loss)
+        # roi_features are the cnn features after bilinear_pooling
+        output = (roi_features, roi_boxes, pos_target_boxes, total_loss, num_pos)
         return output
 
     # Clamp parallel arrays only to valid boxes (not oob of the image)
+    # use in test!
     def clamp_data(self, data, valid):
         # data should be 1 x kHW x D
         # valid is byte of shape kHW
