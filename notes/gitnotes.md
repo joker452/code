@@ -56,3 +56,19 @@ git log refA refB --not refC
 `git stash drop`删除指定的储存的变化。  
 * 清空未被追踪的文件  
 `git clean`用于清空未被追踪的文件。使用`-n`参数来输出哪些会被删除但不进行删除操作。`-x`参数会删除那些被忽略的文件，如在.gitignore中声明的文件。默认是递归删除，但只删除文件，使用`-d`参数来删除那些在文件被移除后会变空的文件夹。  
+
+# GitHub搜索技巧  
+下面列举一些GitHub上常用的筛选搜索结果的方式  
+* `user:<username>`：搜索指定用户  
+
+* `org:<orginaztion name>`:搜索指定组织  
+
+* `license:<license name>`：搜索指定许可证。  
+
+* `pushed/created: relational op <time>`：搜索指定时间条件下有push操作或者在指定时间范围内创建的仓库。  
+
+* `size: realational op <size>`：搜索满足指定大小条件的仓库，单位是K。范围可以用`..`指定，比如`20..50`。
+
+* `stars: realtional op <stars>`：搜索得到星数满足条件的仓库。  
+
+* `in: readme/description/name <keyword>`：限定关键词出现的位置。  
