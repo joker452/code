@@ -2,6 +2,7 @@ import os
 import cv2
 import sys
 import json
+import h5py
 import torch
 import numpy as np
 from torch.utils.data import Dataset
@@ -10,25 +11,37 @@ from scipy.misc import imresize
 from skimage.io import imread
 from skimage.util import img_as_ubyte
 from skimage.color import rgb2gray
-from threading import Thread
+from threading import Thread, Lock
 from queue import Queue
 
 
 class RcnnDataset(Dataset):
 
-    def __init__(self, opt, is_train, logger, data_dir, json_path):
+    def __init__(self, opt, is_train, logger, data_dir, json_path, db_file):
         super(Dataset, self).__init__()
         self.opt = opt
         self.is_train = is_train
         self.logger = logger
         # all image data, memory for speed
-        self.images = []
-        self.image_mean = 0
         self.target_image_size = float(opt.image_size)
         # note this also set self.images
-        self.data = self.load_data(data_dir, json_path)
+        self.data = self.load_data(data_dir, json_path, db_file)
+        db = h5py.File(db_file, 'r')
+        images = db.get('images').value
+        self.images = []
+        self.image_mean = db.get('image_mean').value
+        ow = db.get('image_widths').value
+        oh = db.get('image_heights').value
+        for i, ims in enumerate(images):
+            h, w = oh[i], ow[i]
+            img = ims[0, :h, :w]
+            self.images.append(img)
         self.image_number = len(self.images)
+        self.print_info(True, "total images:{}".format(self.image_number))
+        self.print_info(True, "image_mean:{}".format(self.image_mean))
         self.filter_region_proposals()
+        self.encode_boxes('region_proposals')
+        self.encode_boxes('gt_boxes')
 
     def filter_region_proposals(self):
         """
@@ -49,26 +62,26 @@ class RcnnDataset(Dataset):
                     okay.append(box)
 
             # Only keep unique proposals in downsampled coordinate system, i.e., remove aliases
-            self.print_info(True, "in utils.filter_region_proposals, before unique_boxes {}".
-                            format(len(datum['region_proposals'])))
+            # self.print_info(True, "in utils.filter_region_proposals, before unique_boxes {}".
+            # format(len(datum['region_proposals'])))
             region_proposals = self.unique_boxes(np.array(okay))
-            self.print_info(True, "in utils.filter_region_proposals, after unique_boxes {}".format(len(okay)))
+            # self.print_info(True, "in utils.filter_region_proposals, after unique_boxes {}".format(len(okay)))
             datum['region_proposals'] = region_proposals
 
-    def filter_ground_truth_boxes(self):
+    def filter_ground_truth_boxes(self, images, data):
         """
         Remove too small ground truth boxes when downsampled to the roi-pooling size
         First it's the image scaling preprocessing then it's the downsampling in
         the network.
         """
-        for i, datum in enumerate(self.data):
-            img = imread(datum['id'])
-            H, W = img.shape
+        for i, img in enumerate(images):
+            H, W = img.shape[0], img.shape[1]
             scale = self.target_image_size / max(H, W)
             # Since we downsample the image 8 times before the roi-pooling,
             # divide scaling by 8. Hardcoded per network architecture.
             scale /= 8
             okay_gt = []
+            datum = data[i]
 
             for gt in datum['gt_boxes']:
                 x, y, w, h = gt[0], gt[1], gt[2] - gt[0], gt[3] - gt[1]
@@ -91,15 +104,6 @@ class RcnnDataset(Dataset):
             props.append(pp)
         return np.array(props)
 
-    def calculate_mean(self):
-        mean = 0.0
-        for i, image in enumerate(self.images):
-            if image.ndim == 3:
-                self.images[i] = img_as_ubyte(rgb2gray(image))
-            mean = mean + 255 - image.mean()
-
-        self.image_mean = mean / (i + 1)
-
     def encode_boxes(self, box_type='gt_boxes'):
         """
         rescales boxes and ensures they are inside the image
@@ -120,18 +124,20 @@ class RcnnDataset(Dataset):
             x2 = scaled_boxes[:, 2]
             y2 = scaled_boxes[:, 3]
 
-            xc = (x1 + x2) / 2.0
-            yc = (y1 + y2) / 2.0
+            xc = (x1 + x2) // 2.0
+            yc = (y1 + y2) // 2.0
             w = x2 - x1
             h = y2 - y1
             datum[box_type] = np.stack([xc, yc, w, h], 1)
 
-    def load_data(self, data_dir, json_path):
+    def load_data(self, data_dir, json_path, db_file):
         if not os.path.isfile(json_path):
             self.print_info(False, "json file doesn't exist, load data from scratch")
             image_paths = (data_dir + entry.name for entry in os.scandir(data_dir)
                            if entry.name.endswith('.jpg'))
             data = []
+            images = []
+            images_shape = []
             for image_path in image_paths:
                 label_path = image_path[: -3] + 'txt'
                 if not os.path.exists(label_path):
@@ -141,25 +147,26 @@ class RcnnDataset(Dataset):
                     # better performance?
                     box_lines = f.readlines()
                 img = imread(image_path)
-                self.images.append(img)
+                images.append(img)
+                images_shape.append((img.shape[0], img.shape[1]))
                 gt_boxes = []
                 # x1, y1, x2, y2
                 for box_line in box_lines:
                     box = box_line.split()
+                    box = [int(box[0]), int(box[1]), int(box[2]), int(box[3])]
                     # r['height'] = int(box_line[3]) - int(box_line[1])
                     # r['width'] = int(box_line[2]) - int(box_line[0])
                     # is this required?
                     # r['x'] = int(box_line[0])
                     # r['y'] = int(box_line[1])
                     gt_boxes.append(box)
-
                 datum = {}
                 datum['id'] = image_path
                 datum['h'], datum['w'] = img.shape[0], img.shape[1]
                 datum['gt_boxes'] = gt_boxes
-
                 data.append(datum)
 
+            max_shape = np.array(images_shape).max(0)
             self.print_info(False, "extract DTP")
             c_range = list(range(1, 40, 3))  # horizontal range
             r_range = list(range(1, 40, 3))  # vertical range
@@ -167,12 +174,23 @@ class RcnnDataset(Dataset):
             h_range = (44, 310)
             self.extract_dtp(data, c_range, r_range, w_range, h_range)
             self.print_info(False, "extract DTP done")
-            self.filter_ground_truth_boxes()
+            for datum in data:
+                datum['region_proposals'] = np.load('npz/' + datum['id'].split('/')[-1][: -4] + '_dtp.npz') \
+                    ['region_proposals'].tolist()
+            self.filter_ground_truth_boxes(images, data)
+            if not os.path.exists(db_file):
+                create_db(images, db_file, max_shape)
+
             with open(json_path, "w") as f:
                 json.dump(data, f)
+            # for datum in data:
+            #     datum['region_proposals'] = np.array(datum['region_proposals'])
         else:
             with open(json_path, "r") as f:
                 data = json.load(f)
+
+
+
         return data
 
     def unique_boxes(self, boxes):
@@ -235,10 +253,9 @@ class RcnnDataset(Dataset):
                         threshold_range = np.array([0.9]) * m
                     region_proposals = self.find_regions(img, threshold_range, c_range, r_range, w_range, h_range)
                     region_proposals = self.unique_boxes(region_proposals)
-                    datum['region_proposals'] = region_proposals.tolist()
                     np.savez_compressed(proposal_file, region_proposals=region_proposals)
                 else:
-                    self.logger(False, "dtp.npz for {} already exists, skip it".format(file_name))
+                    self.print_info(False, "dtp.npz for {} already exists, skip it".format(file_name))
                 q.task_done()
 
         num_workers = 8
@@ -274,7 +291,7 @@ class RcnnDataset(Dataset):
         out = (img, gt_boxes)
         if self.opt.dtp_train:
             proposals = self.data[ind]['region_proposals']
-            out += proposals
+            out += (proposals,)
 
         return out
 
@@ -285,7 +302,7 @@ class RandomSampler(object):
         data_source (Dataset): dataset to sample from
     """
 
-    def __init__(self, data_source, num_iters, is_train):
+    def __init__(self, num_iters, is_train):
         self.num_iters = num_iters
         self.is_train = is_train
 
@@ -297,3 +314,51 @@ class RandomSampler(object):
 
     def __len__(self):
         return self.num_iters
+
+
+def calculate_mean(images):
+    mean = 0.0
+    counter = 0
+    for i, image in enumerate(images):
+        if image.ndim == 3:
+            image = img_as_ubyte(rgb2gray(image))
+        mean = mean + 255 - image.mean()
+        counter += 1
+
+    return mean / counter
+
+
+def create_db(images, db_file, max_shape):
+    lock = Lock()
+    q = Queue()
+    f = h5py.File(db_file, 'w')
+    image_dset = f.create_dataset('images', (len(images), 1, max_shape[0], max_shape[1]), dtype=np.uint8)
+    image_heights = np.zeros(len(images), dtype=np.int32)
+    image_widths = np.zeros(len(images), dtype=np.int32)
+    f.create_dataset('image_mean', data=calculate_mean(images))
+    for i, img in enumerate(images):
+        q.put((i, img))
+
+    def worker():
+        while True:
+            i, img = q.get()
+            if img.ndim == 3:
+                img = img_as_ubyte(rgb2gray(img))
+            lock.acquire()
+            h, w = img.shape
+            image_dset[i, :, :h, :w] = img
+            image_heights[i] = h
+            image_widths[i] = w
+            lock.release()
+            q.task_done()
+
+    print('adding images to hdf5.... (this might take a while)')
+    num_workers = 8
+    for i in range(num_workers):
+        t = Thread(target=worker)
+        t.daemon = True
+        t.start()
+    q.join()
+    f.create_dataset('image_heights', data=image_heights)
+    f.create_dataset('image_widths', data=image_widths)
+    f.close()
