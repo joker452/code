@@ -57,6 +57,10 @@ git log refA refB --not refC
 * 清空未被追踪的文件  
 `git clean`用于清空未被追踪的文件。使用`-n`参数来输出哪些会被删除但不进行删除操作。`-x`参数会删除那些被忽略的文件，如在.gitignore中声明的文件。默认是递归删除，但只删除文件，使用`-d`参数来删除那些在文件被移除后会变空的文件夹。  
 
+# Git内部  
+做底层工作的子指令称为plumbing commands，对用户更友好的指令称为porcelain commands。  
+Git中存储的内容表示为blob对象（binary big object?，类似于Unix中inode或者文件内容）对文件名的存储使用tree（类似于Unix下文件夹项目），tree还允许把一组文件存储到一起。  
+
 # GitHub搜索技巧  
 下面列举一些GitHub上常用的筛选搜索结果的方式  
 * `user:<username>`：搜索指定用户  
