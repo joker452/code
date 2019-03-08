@@ -2,6 +2,7 @@ import os
 import cv2
 from PIL import Image
 import json
+import numpy as np
 import untangle
 
 
@@ -88,7 +89,9 @@ def make_dataset(root_dir):
                         labels.append({'text': char, 'coordinates': coordinates})
 
             img = cv2.imread(os.path.join(img_dir, page_name), -1)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            img = cv2.morphologyEx(img, 6, cv2.getStructuringElement(1, (33, 33), (16, 16)))
+            img = img.mean(2)[:, :, None]
+            img = np.where(img < 50, (0, 0, 0), (255, 255, 255)).astype(np.uint8)
 
             for k in range(len(labels)):
                 position = labels[k]['coordinates']
