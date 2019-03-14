@@ -3,8 +3,8 @@ module GCD
     )where
 
 myGCD :: Integer -> Integer -> Integer
-myGCD _ 0 = 0
-myGCD 0 _ = 0
+myGCD a 0 = abs a
+myGCD 0 a = abs a
 myGCD a b
     | x == y =  x
     | x `mod` 2 == 0 && y `mod` 2 == 0 = 2 * myGCD (x `div` 2) (y `div` 2)
