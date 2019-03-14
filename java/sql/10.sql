@@ -1,0 +1,1 @@
+select zip, count(case_id) as case_num from parties where zip <> '' group by zip order by case_num desc limit 3;

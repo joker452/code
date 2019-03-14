@@ -1,0 +1,3 @@
+with african(race, type, num) as (select race, disposition, count(*) from charges join parties using (case_id) where race = 'African American' and (disposition = 'Guilty' or disposition = 'Not Guilty') group by disposition),
+caucasian(race, type, num) as (select race, disposition, count(*) from charges join parties using (case_id) where race = 'Caucasian' and (disposition = 'Guilty' or disposition = 'Not Guilty') group by disposition)
+select race, type, num * 100.0 / (select sum (num) from african) from african union select race, type, num * 100.0 / (select sum(num) from caucasian) from caucasian;

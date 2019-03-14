@@ -1,0 +1,1 @@
+ select count(case_id) as case_count, substr(filing_date, 1, 3) || '0s' from cases where filing_date <> ''group by substr(filing_date, 1,3) order by case_count desc limit 3;

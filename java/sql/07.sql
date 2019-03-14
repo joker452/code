@@ -1,0 +1,1 @@
+select name, count(distinct violation_county) as county_num from cases join parties using (case_id) where parties.type = 'Defendant' and name <> '' group by name order by county_num desc limit 3;

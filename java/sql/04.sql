@@ -1,0 +1,1 @@
+select case_id, filing_date from cases where filing_date <> '' and filing_date >= '1950-1-1' and filing_date < '1960-1-1' order by filing_date asc limit 3
