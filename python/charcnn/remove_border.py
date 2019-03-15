@@ -1,7 +1,16 @@
 import os
 import cv2
 import numpy as np
-
+from PIL import ImageDraw, Image
+def test_gt(img, boxes, i):
+    im = Image.open(r"d:\lunwen\data\bw_difangzhi\500.jpg")
+    f = open(r"d:\lunwen\data\bw_difangzhi\500.txt")
+    boxes = f.readlines()
+    d = ImageDraw.Draw(im)
+    for box in boxes:
+        xc, yc, w, h = map(int, box.split())
+        d.rectangle([xc, yc, w, h], outline='white')
+    im.save("1.png")
 
 def find_region(row_value_threshold, col_value_threshold, row_range_threshold, col_range_threshold, need_range):
     global h, w
@@ -31,13 +40,13 @@ def find_region(row_value_threshold, col_value_threshold, row_range_threshold, c
     return row_start, col_start, row_end, col_end
 
 
-img_dir = r"d:\lunwen\data\original_ctrl\\"
+img_dir = r"d:\lunwen\data\bw_difangzhi\\"
 images = [img_dir + f.name for f in os.scandir(img_dir) if f.name.endswith("jpg")]
 images.sort(key=lambda item: (len(item), item))
 
 for i, image_path in enumerate(images):
     text_path = img_dir + image_path.split('\\')[-1][: -3] + 'txt'
-    twin_path = r"d:\lunwen\data\difangzhi_for_ctrlf\\" + image_path.split('\\')[-1]
+
     img = cv2.imread(image_path)
     img = img[:, :, 0]
     h, w = img.shape
@@ -49,20 +58,20 @@ for i, image_path in enumerate(images):
     if row_start == 0 or col_start == 0:
         row_start, col_start, row_end, col_end = find_region(0.01, 0.02, (0, 0), (0, 0), False)
     # img = img[row_start: row_end, col_start: col_end]
-    # new_lines = []
-    # with open(text_path, 'r', encoding='utf-8') as f:
-    #     lines = f.readlines()
-    #     for line in lines:
-    #         x1, y1, x2, y2 = map(int, line.split())
-    #         x1 -= col_start
-    #         y1 -= row_start
-    #         x2 -= col_start
-    #         y2 -= row_start
-    #         new_line = str(x1) + ' ' + str(y1) + ' ' + str(x2) + ' ' + str(y2) + '\n'
-    #         new_lines.append(line)
-    # with open('./out/{}.txt'.format(i), 'w', encoding='utf-8') as f:
-    #     f.writelines(new_lines)
+    new_lines = []
+    with open(text_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+        for line in lines:
+            x1, y1, x2, y2 = map(int, line.split())
+            x1 -= col_start
+            y1 -= row_start
+            x2 -= col_start
+            y2 -= row_start
+            new_line = str(x1) + ' ' + str(y1) + ' ' + str(x2) + ' ' + str(y2) + '\n'
+            new_lines.append(new_line)
+    with open('./out/{}.txt'.format(i), 'w', encoding='utf-8') as f:
+        f.writelines(new_lines)
     # cv2.imwrite("./out/{}.jpg".format(i), img)
-    img = cv2.imread(twin_path)
+
     img = img[row_start: row_end, col_start: col_end]
     cv2.imwrite("./out/{}.jpg".format(i), img)
