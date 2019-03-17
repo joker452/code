@@ -40,10 +40,44 @@
 会返回当前和`sockfd`关联的地址，`addrlen`应该初始化为`addr`的大小，返回值为实际地址的大小，如果作为缓存传入的`addr`太小，那么地址会被截断。  
 
 - pthread_create(pthread_t \*thread, const pthread_attr_t \*attr, void \*(\*start_routine) (void \*), void \*arg);
+- fork(void)  
+fork会创建一个新的子*进程*，子进程拥有自己的地址空间。fork在子进程中返回值为0，子进程要关闭一次socket，因为每增加一个子进程，引用数就会增加1，所以先关闭一次防止资源未被正确释放。  
+- `exit` 和`_exit`(`_Exit`)  
+在子进程应该使用`_exit`，因为`fork`会复制用户空间的缓冲，而`exit`会调用`atexit`注册的函数并且刷新用户空间的缓冲，这可能导致同样的数据出现两次或者使得临时文件被意外删除。应该在子进程`exec`失败或者不使用`exec`时使用`_exit`，`exec`成功时子进程会有新的缓冲。  
+- `setsockopt(int s, int level, int optname, const void *optval, socklen_t optlen)`  
+把socket s的optname选项设置为optval, optlen是optval的长度。  
+	* Without SO_REUSEADDR, binding socketA to 0.0.0.0:21 and then binding socketB to 192.168.0.1:21 will fail (with error EADDRINUSE), since 0.0.0.0 means "any local IP address", thus all local IP addresses are considered in use by this socket and this includes 192.168.0.1, too. With SO_REUSEADDR it will succeed  
+	* SO_REUSEPORT在所有当前的socket之前的socket也设置了此选项时，允许将完全相同的源地址、端口绑定到任意数目的socket。SO_REUSEADDR则只关注当前尝试bind的socket，以前bind的socket是否设置了SO_REUSEADDR无所谓。
                           
 `<sys/types.h>`是`C POSIX library`的一部分，包含了C标准库以外的一些函数。根据网上查阅得到的资料，这个头文件里定义了一些和系统相关的基本数据类型。自己的理解是它并不保证跨平台的位数一致性，而是恰恰相反，一些位数不确定的数据类型，在位数不同的平台上，具体的大小会自动得到调制。  
 `intptr_t`可以用于逐比特操作，但是用`uintptr_t`更好？可以用于比较指针大小？  
 C语言中一系列`is_xxx(int)`函数的参数必须是`unsigned char`或者`EOF`。  
 不要使用`gets`，因为不能预先知道要读入多少数据，`gets`可能会使得缓冲区溢出，应该使用`fgets`。  
 `feof`不会指示文件指针现在的位置是不是位于文件尾部，它只会指明上一次尝试从文件流的读取是否超过了文件尾。  
-`stat`, `fstat`, `lstat`可以用来获得文件的信息，比如大小，权限，用户、组、设备ID等。  
+`stat`, `fstat`, `lstat`可以用来获得文件的信息，比如大小，权限，用户、组、设备ID等。   
+
+d7读到什么，返回什么。  
+19读到什么，返回随机的协议TCP/IP中用于测试的协议  
+不愿看到：有时出错，大多数时候不出错  
+容忍性：不能由于一个用户出现问题而影响所有用户  
+SCTP （stream control transmission protocol）：传输层协议。可靠的，面向连接的，提供拥塞控制，但是面向消息，而非字节。使用多宿主(multi-homing)和冗余路径来增加可靠性。创建方式为`socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP)`  
+SYN之后，发送方进入SYN SENT状态，接收方发送完SYN/ACK后进入SYN_RCVD状态，发送方接收到SYN/ACK并发送ACK后进ESTABLISHED状态，接收方收到ACK后进入ESTABLISHED状态。  
+MSL: maximum segment lifetime：一个TCP端可以在互联网中存在的时间。RFC中建议为2min，但一般比这个短。
+time_wait: 2倍MSL    
+主动终止TCP连接的一端会进入TIME_WAIT状态
+google：so_reuseport    
+TCP的socket有一个send buffer，send调用成功仅仅意味着数据被成功加入到缓冲中。  
+
+broken pipe由于sigpipe产生，服务器缺省处理方式为退出，这样的方式没有容忍性  
+交换机一般有三种转发模式：  
+* 存储转发（Store and Froward）  
+交换机会将整个帧全部接收完毕，包括帧头、帧体、帧尾CRC。  
+独立计算出一个CRC校验值，校验覆盖帧头、帧体部分，不包括帧尾CRC。
+然后与接收到帧尾CRC进行比较：相同，校验通过，进一步转发处理；否则，校验失败，丢弃处理。  
+* 剪切转发（Cut and Forward）  
+交换机只接收帧的前64个字节，如果帧的长度小于64字节，视为冲突帧、无效帧，丢弃处理。  如果接收到64个字节，则立马查表转发，不进行帧的CRC校验。  
+* 直接转发（Direct Forward）  
+交换机只要看到帧头部的目的MAC，立马查表转发，不进行帧的CRC校验。  
+ 
+
+
