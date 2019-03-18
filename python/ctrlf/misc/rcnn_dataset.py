@@ -308,9 +308,8 @@ class RcnnDataset(Dataset):
         img = self.transforms(img)
         gt_boxes = self.data[ind]['gt_boxes']
         out = (img, gt_boxes)
-        if self.opt.dtp_train:
-            proposals = self.data[ind]['region_proposals']
-            out += (proposals,)
+        proposals = self.data[ind]['region_proposals']
+        out += (proposals,)
 
         return out
 
@@ -326,11 +325,10 @@ class RandomSampler(object):
         self.is_train = is_train
 
     def __iter__(self):
-        # TODO: chage this to right split
         if self.is_train:
-            return iter(torch.arange(self.num_iters, dtype=torch.int64))
-        else:
             return iter(torch.randperm(self.num_iters))
+        else:
+            return iter(torch.arange(self.num_iters, dtype=torch.int64))
 
     def __len__(self):
         return self.num_iters

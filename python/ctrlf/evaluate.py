@@ -16,57 +16,6 @@ import misc.box_utils as box_utils
 from misc.boxIoU import bbox_overlaps
 
 
-def pairwise_cosine_distances(x, y, batch_size=1000):
-    """
-    Input: x is a Nxd matrix
-           y is an Mxd matirx
-    Output: dist is a NxM matrix where dist[i,j] is the cosine distance between x[i,:] and y[j,:]
-    """
-    y_norm = y.norm(2, dim=1)
-
-    def cos(x):
-        x_norm = x.norm(2, dim=1)
-        return 1 - torch.mm(x, torch.transpose(y, 0, 1)) / torch.ger(x_norm, y_norm)
-
-    dist = []
-    for v in x.split(batch_size):
-        dist.append(cos(v))
-    dist = torch.cat(dist, dim=0)
-    return dist
-
-
-def hyperparam_search(model, valloader, args, opt, score_vars='all'):
-    variables = ['score_nms_overlap', 'score_threshold', 'test_rpn_nms_thresh']
-    ranges = [np.arange(0.1, 0.71, 0.1), np.arange(0.0, 0.1, 0.01), np.arange(0.1, 0.51, 0.1)]
-    best = {}
-    use_dtp = args.use_external_proposals
-    for (variable, vals) in zip(variables, ranges):
-        maps = []
-        best_score = 0.0
-        best_val = -1
-        for v in vals:
-            args[variable] = v
-            log, rf, rt = mAP(model, valloader, args, 0)
-            if not use_dtp:
-                rt = rf
-
-            if score_vars == '50':
-                score = (rt.mAP_qbe_50 + rt.mAP_qbs_50) / 2
-            else:
-                score = (rt.mAP_qbe_50 + rt.mAP_qbs_50 + rt.mAP_qbe_25 + rt.mAP_qbs_25) / 4
-
-            maps.append([rt.mAP_qbe_50, rt.mAP_qbs_50])
-            if score > best_score:
-                best_score = score
-                best_val = v
-
-        best[variable] = (best_score, best_val)
-        args[variable] = opt[variable]
-
-    for v in variables:
-        args[v] = best[v][1]
-
-    args.use_external_proposals = use_dtp
 
 
 def my_unique(tensor1d):
@@ -94,7 +43,7 @@ def recalls(proposals, gt_boxes, overlap_thresholds, entry, key):
 def extract_features(model, loader, args, numpy=True):
     outputs = []
     model.eval()
-    for data in loader:
+    for i, data in enumerate(loader):
         (img, gt_boxes, external_proposals) = data
 
         if args.max_proposals == -1:
@@ -113,7 +62,6 @@ def extract_features(model, loader, args, numpy=True):
 def mAP(model, loader, args, logger, i):
     features = extract_features(model, loader, args, args.numpy)
     recall = 3
-    split = loader.dataset.split
     args.overlap_thresholds = [0.25, 0.5]
 
     args.use_external_proposals = True
@@ -143,17 +91,7 @@ def mAP_eval(features, loader, args, logger, i):
 def postprocessing(features, loader, args, logger, kk):
     score_nms_overlap = args.score_nms_overlap  # For wordness scores
     score_threshold = args.score_threshold
-    overlap_thresholds = args.overlap_thresholds
 
-    max_overlaps, amax_overlaps = [], []
-    overlaps = []
-    all_gt_boxes = []
-    db_targets = []
-    db = []
-    joint_boxes = []
-    log = []
-    offset = [0, 0]
-    n_gt = 0
     for li, data in enumerate(loader):
         roi_scores, eproposal_scores, proposals = features[li]
         (img, gt_boxes, external_proposals) = data
@@ -162,7 +100,6 @@ def postprocessing(features, loader, args, logger, kk):
         external_proposals = box_utils.xcycwh_to_x1y1x2y2(external_proposals[0].float())
         gt_boxes = box_utils.xcycwh_to_x1y1x2y2(gt_boxes[0].float())
 
-        del gt_boxes
 
 
 
@@ -183,6 +120,9 @@ def postprocessing(features, loader, args, logger, kk):
             scores = torch.cat((scores, eproposal_scores), 0)
             proposals = torch.cat((proposals, external_proposals), 0)
 
+        print("eproposal_scores size", eproposal_scores.size())
+        print("roi scores size", roi_scores.size())
+        print("proposal size", proposals.size())
         # calculate the different recalls before NMS
         # entry = {}
         # recalls(proposals, gt_boxes, overlap_thresholds, entry, '1_total')
@@ -190,6 +130,7 @@ def postprocessing(features, loader, args, logger, kk):
         # Since slicing empty array doesn't work in torch, we need to do this explicitly
         if args.use_external_proposals:
             nrpn = len(roi_scores)
+            print(nrpn)
             rpn_proposals = proposals[:nrpn]
             dtp_proposals = proposals[nrpn:]
         #     recalls(dtp_proposals, gt_boxes, overlap_thresholds, entry, '1_dtp')
@@ -208,12 +149,12 @@ def postprocessing(features, loader, args, logger, kk):
             dtp_proposals = dtp_proposals[tmp[nrpn:]].view(-1, 4)
         # recalls(dtp_proposals, gt_boxes, overlap_thresholds, entry, '2_dtp')
         # recalls(rpn_proposals, gt_boxes, overlap_thresholds, entry, '2_rpn')
-        logger.debug("in postprocessing after score prune")
+        # logger.debug("in postprocessing after score prune")
         #print(score_threshold)
         #print(threshold_pick)
-        print("total ", proposals.size())
-        print("rpn ", rpn_proposals.size())
-        print("dtp ", dtp_proposals.size())
+        # print("total ", proposals.size())
+        # print("rpn ", rpn_proposals.size())
+        # print("dtp ", dtp_proposals.size())
 
 
         dets = torch.cat([proposals.float(), scores.view(-1, 1)], 1)
@@ -239,16 +180,26 @@ def postprocessing(features, loader, args, logger, kk):
         print("total ", proposals.size())
         print("rpn ", rpn_proposals.size())
         print("dtp ", dtp_proposals.size())
-        proposals = dtp_proposals.cpu().numpy()
+        r = rpn_proposals.cpu().numpy()
+        dtp = dtp_proposals.cpu().numpy()
+
         img = img.numpy().squeeze()
+        img = img + 34.42953730765813 / 255
         img = img * 255
         img = img.astype(np.uint8)
+        im1 = img.copy()
         im = Image.fromarray(img)
         d = ImageDraw.Draw(im)
-        for i, box in enumerate(proposals):
+        for i, box in enumerate(r):
             x1, y1, x2, y2 = box[0], box[1], box[2], box[3]
-            d.rectangle([x1, y1, x2, y2], outline='black')
-        im.save("/data2/dengbowen/work/samples/gw_out/{}-{}.png".format(kk, li))
+            d.rectangle([x1, y1, x2, y2], outline='white')
+        im.save("/mnt/data1/dengbowen/ctrlf/out/rpn/it{}-{}.png".format(kk, li))
+        im = Image.fromarray(im1)
+        d = ImageDraw.Draw(im)
+        for i, box in enumerate(dtp):
+            x1, y1, x2, y2 = box[0], box[1], box[2], box[3]
+            d.rectangle([x1, y1, x2, y2], outline='white')
+        im.save("/mnt/data1/dengbowen/ctrlf/out/dtp/it{}-{}.png".format(kk, li))
     # overlap = bbox_overlaps(proposals, gt_boxes)
     # overlaps.append(overlap)
     # max_gt_overlap, amax_gt_overlap = overlap.max(dim=1)
