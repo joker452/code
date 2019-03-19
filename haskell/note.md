@@ -53,4 +53,19 @@ pat ::= _
       | var
       | var @ ( pat )
       | ( Constructor pat1 pat2 ... patn )  
-```
+```  
+data List t = E | C t (List t)
+t是type variable，必须小写，类型必须大写。
+副作用:任何导致求值过程受到其自身以外的影响的事。  
+```haskell  
+f1 :: Maybe a -> [Maybe a]
+f1 m = [m,m]
+
+f2 :: Maybe a -> [a]
+f2 Nothing  = []
+f2 (Just x) = [x]
+```  
+pattern matching drives evaluation  
+* Expressions are only evaluated when pattern-matched  
+* only as far as necessary for the match to proceed, and no farther!  
+GHC uses a technique called graph reduction, where the expression being evaluated is actually represented as a graph, so that different parts of the expression can share pointers to the same subexpression. This ensures that work is not duplicated unnecessarily.   
