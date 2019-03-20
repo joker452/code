@@ -19,7 +19,7 @@
 以前在调用之前需要手动填写`struct sockaddr_in`各个域，再将其作为参数传递。现在可以使用`getaddrinfo`返回的结构体中的`ai_addr`, `ai_addrlen`作为实参。此函数通常被称为给socket命名。如果port为0，那么会随机绑定一个端口，之后可以使用`getsockname`来获得分配的端口。  
 
 - listen(int sockfd, int backlog)  
-所有连接在`accept`前都会在队列中等待。  
+backlog是在established和syn_rcvd的总和。
 
 - accept(int sockfd, struct sockaddr \*addr, socklen_t \*addrlen)  
 `addr`参数通常为`struct sockaddr_storage`  
@@ -67,6 +67,9 @@ time_wait: 2倍MSL
 主动终止TCP连接的一端会进入TIME_WAIT状态
 google：so_reuseport    
 TCP的socket有一个send buffer，send调用成功仅仅意味着数据被成功加入到缓冲中。  
+各个Linux系统中的`signal`的处理方式非常不同。  
+成熟的服务器使用epoll来设置发送、接收时间限制？？？  
+
 
 broken pipe由于sigpipe产生，服务器缺省处理方式为退出，这样的方式没有容忍性  
 交换机一般有三种转发模式：  
@@ -78,6 +81,6 @@ broken pipe由于sigpipe产生，服务器缺省处理方式为退出，这样�
 交换机只接收帧的前64个字节，如果帧的长度小于64字节，视为冲突帧、无效帧，丢弃处理。  如果接收到64个字节，则立马查表转发，不进行帧的CRC校验。  
 * 直接转发（Direct Forward）  
 交换机只要看到帧头部的目的MAC，立马查表转发，不进行帧的CRC校验。  
- 
+
 
 
