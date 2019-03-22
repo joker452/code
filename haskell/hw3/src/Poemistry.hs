@@ -1,4 +1,4 @@
-module Poemistry where
+module Poemistry(poemistry, prettyPrint) where
 
 helper :: [Char] -> Integer -> Integer -> Integer -> [Char]
 helper xs len k acc | acc >= 20 = []

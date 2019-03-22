@@ -1,4 +1,4 @@
-module MyList where
+module MyList(List(..), concat) where
 
 import Prelude hiding (concat)
 
