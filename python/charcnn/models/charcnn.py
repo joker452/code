@@ -5,7 +5,7 @@ class CharCnn(nn.Module):
 
     def __init__(self, num_classes):
         super(CharCnn, self).__init__()
-        self.features = nn.Sequential(nn.Conv2d(1, 64, 3, 1, 1),
+        self.features = nn.Sequential(nn.Conv2d(3, 64, 3, 1, 1),
                                       nn.BatchNorm2d(64),
                                       nn.ReLU(),
                                       nn.MaxPool2d(2, 2),
