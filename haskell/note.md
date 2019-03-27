@@ -30,7 +30,13 @@ haskell 有tag
 type和构造函数可以重名，二者命名空间不同
 bool stack里两个地址
 ```haskell
-data Pair = I Int | D Double
+data Pair = I Int | D Double  
+data Position = MakePosition { getX :: Double, getY :: Double} -- record syntax
+p = MakePosition { getY = 3.0, getX = 4.0} 
+data () = () 
+data (,) a b = (,) a b
+data (,,) a b c = (,,) a b c 
+data (,,,) a b c d = (,,,) a b c d -- tuple has special syntax
 ```
 `I`,`D`称为标签，在构造函数和模式匹配中使用。  
 当代数类型用于枚举时，构造函数同时也是该类型的所有可能取值。  
@@ -69,3 +75,36 @@ pattern matching drives evaluation
 * Expressions are only evaluated when pattern-matched  
 * only as far as necessary for the match to proceed, and no farther!  
 GHC uses a technique called graph reduction, where the expression being evaluated is actually represented as a graph, so that different parts of the expression can share pointers to the same subexpression. This ensures that work is not duplicated unnecessarily.   
+
+case...of...中的绑定只会在对应的表达式分支里有效。  
+Haskell并不区分值和函数。  
+对于`$`的理解就是两侧都有()。`$`是右结合，`&`是左结合，优先级为1，定义在Data.Function中。  
+::的优先级在各种符号中最低，但\ ... -> ... :: Type中的Type指的不是整个匿名函数的类型，而是->右侧表达式的类型，其实这是因为即Type被函数体包含进去了， 所以如果需要标注整个匿名函数的类型， 请加上括号：  
+```haskell
+(\x -> x + 1) :: Int-> Int  
+```  
+闭包：函数体里引用了外围作用域中的自由变量的函数。  
+```haskell
+giveMeN :: Int -> [a] -> [a]
+giveMeN n xs
+    | n <= 0 = []
+    | otherwise = go $ zip [0..] xs
+    where 
+      go [] = []
+      go ((i, x): xs) = if i `rem` n == 0 then x : go xs    -- use free variable n
+                              else go xs
+```  
+where经常用来书写仅在一个函数内部用到的帮助函数。它如果出现在任何绑定发生的地方，则用来补充说明绑定右侧的表达式。  
+```haskell  
+case i `rem` 5 of
+    0 -> x: rest
+    _ -> rest
+    where                -- all branches can see
+     rest = go xs
+
+case xs of
+    (x: xs') -> ...
+     where ...            -- local to each branch
+    [] -> ...
+     where ...
+```
