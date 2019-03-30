@@ -1,4 +1,4 @@
-﻿# 
+# 
 1. HTTP response messages may have empty body.
     * HTTP Status-Code of 200 for HEAD request can be sent without message-body
     * HTTP Status-Code of 204 and 304 MUST NOT include a message body  
@@ -100,7 +100,39 @@ void (*sa_restorer)(void);
 通过sa_handler或者sa_sigaction来传递新的handler，sa_mask指定在handler执行过程中哪些信号会被忽略（触发此handler的信号已自动设置）,sa_flags用于改变信号的行为，sa_restorer没有实际作用。  
 TCP socket缓存至少4个MSS是因为快速重传要求收到3个重复的ACK（也就是4个相同的ACK）才会启动。  
 * `setsid(void)`  
-如果调用的进程不是进程组的组长，那么会新建立一个会话，调用的进程是新的会话的组长，同时是新的进程组的组长。
+如果调用的进程不是进程组的组长，那么会新建立一个会话，调用的进程是新的会话的组长，同时是新的进程组的组长。  
+* `pthread_create(pthread_t *tid, const pthread_attr_t *attr, void * (*func) (void *), void *arg)`  
+大于0的返回值是错误编码。同一进程的线程号保证不会重复。
+* `pthread_detach(pthread_t thread)`
+把一个线程标记为分离状态，这样当它结束时，不需要用join等待它，系统也会自动释放它的资源。多次对同一线程调用会产生未定义行为。  
+* `pthread_attr_init(pthread_attr_t *attr)`  
+对线程属性进行默认值的初始化。已经初始化再调用行为未定义，如果属性对象不再需要，可以用`pthread_attr_destory(pthread_attr_t *attr)`销毁，销毁对之前使用此属性创建的线程没有影响。销毁后可以用pthread_attr_int再次初始化。  
+* `pthread_attr_setdetachstate(pthread_attr_t *attr, int detachstate)`  
+设置使用此属性创建的线程是否分离。  
+* `pthread_attr_setschedparam(pthread_attr_t *attr, const struct sched_param *param)`  
+可以用于设置线程的优先级。默认的调度方式为`SCHED_OTHER`，即时间轮转分片。这种情况下无法改变线程优先级。  
+一些函数如`gethostbyname`有GNU扩展提供的可重入版本。函数名命名方式为`xxx_r`，此例中为`gethostbyname_r`。  
+线程的终止：  
+* 调用pthread\_exit。  
+* `pthread_create`中作为参数的函数返回，其返回值是线程的退出状态。  
+* 进程的main函数返回或者任何线程调用`exit`。  
+POSIX.1要求所有POSIX.1和ANSI C标准定义的函数thread-safe，但有一些例外存在。  
 
-
-
+# 问题
+thread和process创建时，分别会复制哪些信息，共享哪些信息？  
+process会复制父进程的数据空间？  
+从子进程给父进程传递信息很难？  
+线程共享：  
+* 进程指令  
+* 大多数数据  
+* 打开的文件  
+* 信号句柄和信号处理  
+* 当前工作目录  
+* 用户和组ID  
+线程独占：  
+* 线程号  
+* 包括程序计数器、栈指针的一系列寄存器  
+* 栈  
+* errno  
+* signal mask  
+* 优先级
