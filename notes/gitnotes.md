@@ -14,6 +14,17 @@ If featureA is rebased, then you have to sepcify the `-f` to your push command i
 `git merge --squash <another branch>`  
 produce the working tree and index state as if a real merge happened (except for the merge information), but do not actually make a commit. This means your future commit will have one parent only and allows you to introduce all the chnages from another branch and then make more changes before recording the new commit.  
 
+# reset, checkout
+HEAD指向当前branch，branch指向某一个commit。  
+切换分支或者克隆时，会让HEAD指向最新的分支，然后将索引区用commit的快照填充，之后把索引区的内容拷贝到工作目录。  
+checkout会改变HEAD的指向，reset的第一步则是移动HEAD指向的分支指向的commit（注意HEAD也被连带改变了）。  
+`git reset --soft`不改变索引区和工作目录，它实际上取消了上一次`git commit`，但上一次的commit object没有被删除。  
+`git reset [--mixed]`用新的HEAD指向的提交替换索引区。取消了上一次`git commit`和`git add`。  
+`git reset --hard`进一步把工作目录替换为索引区的内容。  
+如果给reset提供了文件路径，那么会跳过移动HEAD的步骤，因为HEAD是指针，不能用指针指向提交的一个部分。  
+`git reset [--mixed HEAD] file_path`是`git add`的逆操作。可以用`git reset <SHA-number> file_path`指明从哪个commit中拷贝，此操作只修改索引区。  
+`git checkout`会改变HEAD，索引区和工作目录。  
+`git checkout [<tree-ish>] [--] file_path`带`<tree-ish>`参数时，会会改变索引区和工作目录，否则用索引区内容替代工作目录，两种情况下都不会移动HEAD。  
 # Maintain a repository  
 Create a simple branch name based on the theme of the work you'are going to try. The name should have a namespace, e.g., `sc/ruby_client`.  
 `git apply` and `git am` can be used to apply an emailed patch.  
