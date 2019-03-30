@@ -29,3 +29,4 @@ main = do
     print $ sort (perms [1]) == sort (permutations [1])
     print $ sort (perms ["a", "c", "b"]) == sort (permutations ["a", "b", "c"])
 1
+2
