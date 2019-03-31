@@ -25,9 +25,34 @@ checkout会改变HEAD的指向，reset的第一步则是移动HEAD指向的分�
 `git reset [--mixed HEAD] file_path`是`git add`的逆操作。可以用`git reset <SHA-number> file_path`指明从哪个commit中拷贝，此操作只修改索引区。  
 `git checkout`会改变HEAD，索引区和工作目录。  
 `git checkout [<tree-ish>] [--] file_path`带`<tree-ish>`参数时，会会改变索引区和工作目录，否则用索引区内容替代工作目录，两种情况下都不会移动HEAD。  
+
+# 配置Git  
+1. /etc/gitconfig 用`--system`配置，系统所有用户。  
+2. ~/.gitconfig或者~/.config/git/config，用`--global`配置，针对每一个用户。  
+3. .git/config，用`--local`配置，针对每一个仓库。使用`git config`时的默认级别。  
+## 客户端
+`git config core.autocrlf true`自动转换。  
+`git config core.autocrlf input`，提交时转化为LF，checkout时不会做改变。  
+Git可以处理6种主要的涉及到空白的问题，三种默认开启（blank-at-eol（行末空格），blank-at-eof（文件尾空行），space-before-tab（行起始处在tab前的空格）），三种默认关闭（indent-with-non-tab（以空格而非tab开头的行），tab-in-indent（用tab而非空格做缩进），cr-at-eol（允许行末出现cr））。  
+## 服务器端
+`git config --system receive.denyNonFastForwards true`来拒绝强制推送。  
+
+## Git属性  
+可以用项目根目录的.gitattributes或者.git/info/attributes文件来配置Git在特定的文件或者目录上的行为。  
+可以用属性文件设置两类filter, smudge和clean。前者在checkout之前运行，后者在stage之前运行。
+```git
+*.pbxproj binary // 声明二进制文件，git不会修复换行符或者在diff时输出  
+*.docx diff=word // 任何匹配.docx的文件用word过滤器，需安装doc2txt  
+
+test/ export-ignore // git archive时忽略test文件夹  
+*.c filter=indent // 设置indent filter，并指明在smudge和clean时的行为
+git config --global filter.indent.clean indent 
+git config --global filter.indent.smudge cat  
+database.xml merge=ours git config --global merge.ours.drive true // 对特定文件使用特定合并策略
+```
 # Maintain a repository  
 Create a simple branch name based on the theme of the work you'are going to try. The name should have a namespace, e.g., `sc/ruby_client`.  
-`git apply` and `git am` can be used to apply an emailed patch.  
+`git apply` and `git am` can be used to apply an emailed patch.
 `git diff --word-diff`  
 In github, you simply commit and push your topic branch again, and the Pull Request will automatically update. The "Files Changed" tab on a Pull Request will show the "unified" diff, which is basically `git diff master...<branch name>` for the branch this Pull Request is based on.  
 One thing to notice is even if the merge **could** be a fast-forward, GitHub will perform a **non-fast-forward** merge.  
