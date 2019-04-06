@@ -94,7 +94,9 @@ giveMeN n xs
       go ((i, x): xs) = if i `rem` n == 0 then x : go xs    -- use free variable n
                               else go xs
 ```  
-where经常用来书写仅在一个函数内部用到的帮助函数。它如果出现在任何绑定发生的地方，则用来补充说明绑定右侧的表达式。  
+where经常用来书写仅在一个函数内部用到的帮助函数。它如果出现在任何绑定发生的地方，则用来补充说明绑定右侧的表达式。    
+**折叠是顺序递归操作的抽象**。
+Haskell中所有的函数都可以看作是单参数的函数。函数进行部分应用时，返回一个新的函数表示剩下的运算。
 ```haskell  
 case i `rem` 5 of
     0 -> x: rest
