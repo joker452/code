@@ -68,10 +68,23 @@ def evaluate(gt_dir, detect_dir, threshold):
         B2 = target_boxes.shape[0]
         ious = bbox_overlaps(input_boxes, target_boxes).view(1, B1, B2)
         # N x B2
-        # find the gt boxes having max overlap with each input box
+        # find the input boxes having max overlap with each gt box
         target_max_iou, target_idx = torch.max(ious, dim=1)
         pos_mask = torch.gt(target_max_iou, threshold)
-        TP = pos_mask.sum().item()
+        TP = 0
+        box_id, index = target_idx.sort()
+        i = 0
+        l = box_id.size(1)
+        while i < l:
+            current_max = target_max_iou[0][index[0][i].item()]
+            j = i + 1
+            while j < l and box_id[0][j] == box_id[0][i]:
+                temp = target_max_iou[0][index[0][j].item()]
+                current_max = temp if temp > current_max else current_max
+                j += 1
+            if current_max > threshold:
+                TP += 1
+            i = j
         recall = TP / B2
         precision = TP / B1
         re.append(recall)
@@ -80,8 +93,8 @@ def evaluate(gt_dir, detect_dir, threshold):
         print(" Recall:{:.2%}".format(recall), end='')
         print(" Precision:{:.2%}".format(precision))
     print("*" * 30)
-    print("Avg recall:{:.2%} Avg precision{:.2%}".format(sum(re) / len(re), sum(pr) / len(pr)))
+    print("Avg recall:{:.2%} Avg precision:{:.2%}".format(sum(re) / len(re), sum(pr) / len(pr)))
 
 
 if __name__ == '__main__':
-    evaluate('c:/users/deng/desktop/g', 'c:/users/deng/desktop/d', 0.7)
+    evaluate('c:/users/deng/desktop/g', 'c:/users/deng/desktop/d', 0.25)
