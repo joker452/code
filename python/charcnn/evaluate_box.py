@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import torch
-from PIL import ImageDraw
+from PIL import Image, ImageDraw
 
 
 def bbox_overlaps(boxes, query_boxes):
@@ -41,7 +41,7 @@ def bbox_overlaps(boxes, query_boxes):
 def test_gt(img, boxes, i):
     d = ImageDraw.Draw(img)
     for box in boxes:
-        x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
+        x1, y1, x2, y2 = box
         d.rectangle([x1, y1, x2, y2], outline='red')
     img.save("c:/users/deng/desktop/{}.png".format(i))
 
@@ -89,7 +89,7 @@ def evaluate(gt_dir, detect_dir, threshold):
         precision = TP / B1
         re.append(recall)
         pr.append(precision)
-        print(str(i) + " TP:{} Total Detection:{} Total GT:{}".format(TP, B1, B2), end='')
+        print(file_name + " TP:{} Total Detection:{} Total GT:{}".format(TP, B1, B2), end='')
         print(" Recall:{:.2%}".format(recall), end='')
         print(" Precision:{:.2%}".format(precision))
     print("*" * 30)
@@ -97,4 +97,9 @@ def evaluate(gt_dir, detect_dir, threshold):
 
 
 if __name__ == '__main__':
-    evaluate('c:/users/deng/desktop/g', 'c:/users/deng/desktop/d', 0.25)
+    #evaluate('c:/users/deng/desktop/g', 'c:/users/deng/desktop/d', 0.5)
+    img = Image.open("c:/users/deng/desktop/381.jpg")
+    with open("c:/users/deng/desktop/d/381.txt", "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    boxes = list(map(lambda x: list(map(int,x.split())), lines))
+    test_gt(img, boxes, 381)
