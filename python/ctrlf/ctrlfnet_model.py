@@ -1,39 +1,31 @@
 import torch
 import logging
 import torch.nn as nn
-from torch.autograd import Variable
 import math
-import easydict
 
 from misc.localization_layer import LocalizationLayer
 from misc.box_regression_criterion import BoxRegressionCriterion
 from misc.apply_box_transform import ApplyBoxTransform
-from misc.logistic_loss import LogisticLoss
 
 import misc.box_utils as box_utils
 import misc.utils as utils
 from misc.resnet_blocks import BasicBlock, Bottleneck
 
 
-
-class CtrlFNet(torch.nn.Module):
+class CtrlFNet(nn.Module):
     def __init__(self, opt, logger):
         super(CtrlFNet, self).__init__()
         utils.ensureopt(opt, 'mid_box_reg_weight')
         utils.ensureopt(opt, 'mid_objectness_weight')
         utils.ensureopt(opt, 'end_box_reg_weight')
         utils.ensureopt(opt, 'end_objectness_weight')
-        # change: remove embedding_weight
-        #utils.ensureopt(opt, 'embedding_weight')
         utils.ensureopt(opt, 'box_reg_decay')
 
         self.opt = opt
-        # change: remove embedding items
-        # self.emb2desc = {'dct': 108, 'phoc': 540}
-        # self.embedding_dim = self.emb2desc[self.opt.embedding]
 
         # output from bilinear interpolation, ensures that the output from layer4 is 2 x 5
         # TODO: infer one from the other, and also investigate different sizes?
+        # h x w
         output_size = (8, 20)
         # default 34
         if opt.num_layers == 34:
@@ -57,7 +49,7 @@ class CtrlFNet(torch.nn.Module):
             sx = 2 * sx
             sy = 2 * sy
 
-        logger.debug("x0 y0 sx sy in CtrlFNet init {},{},{},{}".format(x0, y0, sx, sy))
+        # logger.debug("x0 y0 sx sy in CtrlFNet init {},{},{},{}".format(x0, y0, sx, sy))
         self.opt.field_centers = (x0, y0, sx, sy)
 
         # First part of resnet
@@ -72,18 +64,16 @@ class CtrlFNet(torch.nn.Module):
         # 27->14
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
+        # 3 basic blocks
         self.layer1 = self._make_layer(block, 64, layers[0])
+        # 4 basic blocks
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
 
-        # logger.debug("layer1 of ResNet")
-        # print(self.layer1)
-        # logger.debug("layer2 of ResNet")
-        # print(self.layer2)
-        # Localization layer
         self.localization_layer = LocalizationLayer(self.opt)
         # logger.debug("localization layer")
         # print(self.localization_layer)
         # Rest of resnet
+        # 6 basic blocks
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
         # logger.debug("layer3 of ResNet")
@@ -93,11 +83,10 @@ class CtrlFNet(torch.nn.Module):
         self.bn2 = nn.BatchNorm2d(512 * block.expansion)
         self.avgpool = nn.AvgPool2d((2, 5))
         self.fc = nn.Linear(512 * block.expansion, 512 * block.expansion)
-        self.fc.bias.data.zero_()
 
         # Initialize resnet weights
         # nothing special?
-        self.init_weights()
+        self.init_resnet_weights()
 
         # Initialize localization_layer weights
         # nothing special?
@@ -106,60 +95,43 @@ class CtrlFNet(torch.nn.Module):
 
         # Final box scoring layer
         self.box_scoring_branch = nn.Linear(512 * block.expansion, 2)
-        # logger.debug("final box scoring layer")
-        # print(self.box_scoring_branch)
-        #        else:
         #            self.box_scoring_branch = nn.Linear(512 * block.expansion, 1)
-        if opt.init_weights:
-            self.box_scoring_branch.weight.data.normal_(0, self.opt.std)
-            self.box_scoring_branch.bias.data.zero_()
 
         # Final box regression layer
         self.apply_box_transform = ApplyBoxTransform()
         self.box_reg_branch = nn.Linear(512 * block.expansion, 4)
+        if opt.init_weights:
+            with torch.no_grad():
+                self.box_scoring_branch.weight.normal_(0, self.opt.std)
+                self.box_scoring_branch.bias.zero_()
+                self.box_reg_branch.weight.zero_()
+                self.box_reg_branch.bias.zero_()
         # logger.debug("final box reg layer")
         # print(self.box_reg_branch)
-        self.box_reg_branch.weight.data.zero_()
-        self.box_reg_branch.bias.data.zero_()
-        # change remove rt embedding
-        # Embedding Net
-
-        # self.emb_opt = easydict.EasyDict({'ni': 512 * block.expansion,
-        #                                   'nh': self.opt.emb_fc_size,
-        #                                   'embedding_dim': self.embedding_dim,
-        #                                   'n_hidden': self.opt.embedding_net_layers,
-        #                                   'embedding_loss': self.opt.embedding_loss})
-        # self.embedding_net = EmbeddingNet(self.emb_opt)
-        # if opt.init_weights:
-            # self.embedding_net.init_weights(self.opt.std)
 
         # Losses
         #        if self.opt.end_ce:
         self.scoring_loss = nn.CrossEntropyLoss()
         #        else:
         #            self.scoring_loss = LogisticLoss()
-
         self.box_reg_loss = BoxRegressionCriterion(self.opt.end_box_reg_weight)
-        print(self.box_reg_loss)
-        # if self.opt.embedding_loss == 'cosine':
-        #     self.embedding_loss = nn.CosineEmbeddingLoss(self.opt.cosine_margin)
-        # elif self.opt.embedding_loss == 'cosine_embedding':
-        #     self.embedding_loss = nn.CosineEmbeddingLoss(self.opt.cosine_margin)
-        # elif self.opt.embedding_loss == 'BCE':
-        #     self.embedding_loss = myMultiLabelSoftMarginLoss()
+        # print(self.box_reg_loss)
 
     def load_weights(self, weight_file):
         if weight_file:
             self.load_state_dict(torch.load(weight_file))
 
-    def init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
+    def init_resnet_weights(self):
+        with torch.no_grad():
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d):
+                    n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                    m.weight.normal_(0, math.sqrt(2. / n))
+                elif isinstance(m, nn.BatchNorm2d):
+                    m.weight.data.fill_(1)
+                    m.bias.zero_()
+                elif isinstance(m, nn.Linear):
+                    m.bias.zero_()
 
     def get_block_and_layers(self, num_layers):
         if num_layers == 34:
@@ -177,8 +149,7 @@ class CtrlFNet(torch.nn.Module):
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
                 nn.Conv2d(self.inplanes, planes * block.expansion, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(planes * block.expansion),
-            )
+                nn.BatchNorm2d(planes * block.expansion), )
 
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample))
@@ -218,24 +189,25 @@ class CtrlFNet(torch.nn.Module):
         """
         scores, tboxes = [], []
         for v in boxes.split(self.opt.test_batch_size):
-            roi_feats = self.localization_layer.eval_boxes((image, Variable(v.cuda(), volatile=True)))
-            roi_feats = self.layer3(roi_feats)
-            roi_feats = self.layer4(roi_feats)
-            roi_feats = self.bn2(roi_feats)
-            roi_feats = self.relu(roi_feats)
-            roi_feats = self.avgpool(roi_feats)
-            roi_feats = roi_feats.view(roi_feats.size(0), -1)
-            roi_codes = self.fc(roi_feats)
-            s = self.box_scoring_branch(roi_codes).cpu()
-            if final_adjust_boxes:
-                box_trans = self.box_reg_branch(roi_codes)
-                b = self.apply_box_transform((v, box_trans.data)).cpu()
-                tboxes.append(b)
+            with torch.no_grad():
+                roi_feats = self.localization_layer.eval_boxes((image, v.cuda()))
+                roi_feats = self.layer3(roi_feats)
+                roi_feats = self.layer4(roi_feats)
+                roi_feats = self.bn2(roi_feats)
+                roi_feats = self.relu(roi_feats)
+                roi_feats = self.avgpool(roi_feats)
+                roi_feats = roi_feats.view(roi_feats.size(0), -1)
+                roi_codes = self.fc(roi_feats)
+                s = self.box_scoring_branch(roi_codes).cpu()
+                if final_adjust_boxes:
+                    box_trans = self.box_reg_branch(roi_codes)
+                    b = self.apply_box_transform((v, box_trans.data)).cpu()
+                    tboxes.append(b)
 
-            scores.append(s.data)
+                scores.append(s.data)
 
         scores = torch.cat(scores, dim=0)
-        out = (scores, )
+        out = (scores,)
         if final_adjust_boxes:
             tboxes = torch.cat(tboxes, dim=0)
             out += (tboxes,)
@@ -257,44 +229,86 @@ class CtrlFNet(torch.nn.Module):
 
         B, C, H, W = image.shape
         self.setImageSize(H, W)
+        with torch.no_grad():
+            image = self.conv1(image)
+            image = self.bn1(image)
+            image = self.relu(image)
+            image = self.maxpool(image)
+            image = self.layer1(image)
+            image = self.layer2(image)
+            # do nms for roi_boxes
+            roi_boxes = self.localization_layer(image)
+            roi_scores, roi_boxes = self._eval_helper(image, roi_boxes.data, True)
+            proposal_scores = self._eval_helper(image, proposals, False)[0]
 
-        image = Variable(image, volatile=True)
+            # Convert to x1y1x2y2
+            roi_boxes = box_utils.xcycwh_to_x1y1x2y2(roi_boxes)
+
+            if cpu:
+                roi_scores = roi_scores.cpu()
+                proposal_scores = proposal_scores.cpu()
+                roi_boxes = roi_boxes.cpu()
+
+            if numpy:
+                # Convert to numpy array
+                roi_scores = roi_scores.cpu().numpy()
+                proposal_scores = proposal_scores.cpu().numpy()
+                roi_boxes = roi_boxes.cpu().numpy()
+
+            roi_scores = roi_scores[:, 1]
+            proposal_scores = proposal_scores[:, 1]
+
+            out = (roi_scores, proposal_scores, roi_boxes)
+        return out
+
+    def forward(self, input):
+        image, gt_boxes = input[0], input[1]
+        # set localizatin layer image size
+        self.setImageSize(image.size(2), image.size(3))
         image = self.conv1(image)
         image = self.bn1(image)
         image = self.relu(image)
         image = self.maxpool(image)
         image = self.layer1(image)
         image = self.layer2(image)
-        roi_boxes = self.localization_layer(image)
-        roi_scores, roi_boxes = self._eval_helper(image, roi_boxes.data, True)
-        proposal_scores = self._eval_helper(image, proposals, False)[0]
+        # 1, 128, 215, 133
+        ll_in = (image, gt_boxes)
+        # fix this after remove label from dataset
+        if self.opt.dtp_train:
+            ll_in += (input[2],)
 
-        # Convert to x1y1x2y2
-        roi_boxes = box_utils.xcycwh_to_x1y1x2y2(roi_boxes)
+        roi_feats, roi_boxes, pos_target_boxes, mid_loss, rpn_pos = \
+            self.localization_layer(ll_in)
+        roi_feats = self.layer3(roi_feats)
 
-        if cpu:
-            roi_scores = roi_scores.cpu()
-            proposal_scores = proposal_scores.cpu()
-            roi_boxes = roi_boxes.cpu()
+        roi_feats = self.layer4(roi_feats)
+        roi_feats = self.bn2(roi_feats)
+        roi_feats = self.relu(roi_feats)
+        roi_feats = self.avgpool(roi_feats)
+        roi_feats = roi_feats.view(roi_feats.size(0), -1)
+        roi_codes = self.fc(roi_feats)
+        num_pos = pos_target_boxes.size(0)
+        # scores are based on roi_codes
+        scores = self.box_scoring_branch(roi_codes)
+        pos_roi_codes = roi_codes[:num_pos]
+        pos_roi_boxes = roi_boxes[:num_pos]
 
-
-        if numpy:
-            # Convert to numpy array
-            roi_scores = roi_scores.cpu().numpy()
-            proposal_scores = proposal_scores.cpu().numpy()
-            roi_boxes = roi_boxes.cpu().numpy()
-
-        roi_scores = roi_scores[:, 1]
-        proposal_scores = proposal_scores[:, 1]
-
-        out = (roi_scores, proposal_scores, roi_boxes)
-        return out
-
-    def forward(self, input):
-        if self.training:
-            return self._forward_train(input)
+        # Don't do box regression on roi boxes since we don't try to adjust dtp boxes
+        if self.opt.dtp_train:
+            reg_roi_codes = pos_roi_codes[:rpn_pos]
+            reg_roi_boxes = pos_roi_boxes[:rpn_pos]
+            box_trans = self.box_reg_branch(reg_roi_codes)
+            boxes = self.apply_box_transform((reg_roi_boxes, box_trans))
+            out = (scores, pos_roi_boxes, box_trans, boxes, pos_target_boxes,
+                   mid_loss, rpn_pos)
         else:
-            return self.evaluate(input)
+            # reg are based on pos_roi_codes
+            box_trans = self.box_reg_branch(pos_roi_codes)
+            # do transformation again for positive boxes
+            boxes = self.apply_box_transform((pos_roi_boxes, box_trans))
+            out = (scores, pos_roi_boxes, box_trans, boxes, pos_target_boxes,
+               mid_loss)
+        return self.post_processing(out)
 
     # def test_dtp(self, input):
     #     with torch.no_grad():
@@ -338,82 +352,7 @@ class CtrlFNet(torch.nn.Module):
     #
     #         return (scores, pos_roi_boxes, box_trans, boxes)
 
-    def _forward_train(self, input):
-        image, gt_boxes = input[0], input[1]
-        image = self.conv1(image)
-        image = self.bn1(image)
-        image = self.relu(image)
-        image = self.maxpool(image)
-        image = self.layer1(image)
-        image = self.layer2(image)
-        # 1, 128, 215, 133
-        ll_in = (image, gt_boxes)
-        # fix this after remove label from dataset
-        if self.opt.dtp_train:
-            ll_in += (input[2],)
-
-        roi_feats, roi_boxes, pos_target_boxes, mid_loss, num_pos = \
-            self.localization_layer(ll_in)
-        roi_feats = self.layer3(roi_feats)
-
-        roi_feats = self.layer4(roi_feats)
-        roi_feats = self.bn2(roi_feats)
-        roi_feats = self.relu(roi_feats)
-        roi_feats = self.avgpool(roi_feats)
-        roi_feats = roi_feats.view(roi_feats.size(0), -1)
-        roi_codes = self.fc(roi_feats)
-
-        # scores are based on roi_codes
-        scores = self.box_scoring_branch(roi_codes)
-        pos_roi_codes = roi_codes[:num_pos]
-        pos_roi_boxes = roi_boxes[:num_pos]
-
-        # Don't do box regression on roi boxes since we don't try to adjust dtp boxes
-        if self.opt.dtp_train:
-            reg_roi_codes = pos_roi_codes[:num_pos // 2]
-            reg_roi_boxes = pos_roi_boxes[:num_pos // 2]
-            box_trans = self.box_reg_branch(reg_roi_codes)
-            boxes = self.apply_box_transform((reg_roi_boxes, box_trans))
-            dtp_boxes = pos_roi_boxes[num_pos // 2:]
-            return (scores, pos_roi_boxes, box_trans, boxes, pos_target_boxes,
-                mid_loss, dtp_boxes)
-        else:
-            # reg are based on pos_roi_codes
-            box_trans = self.box_reg_branch(pos_roi_codes)
-            # do transformation again for positive boxes
-            boxes = self.apply_box_transform((pos_roi_boxes, box_trans))
-        return (scores, pos_roi_boxes, box_trans, boxes, pos_target_boxes,
-                mid_loss)
-
-    def forward_backward(self, logger, data, gpu):
-        self.train()
-
-        # [1, 1, 1720, 1032]  [1, 260, 4] [1, 260, 108]
-        # logger.debug(len(data))
-        # logger.debug('*' * 50)
-        # logger.debug(data[0])
-        # logger.debug('*' * 50)
-        # logger.debug(data[1])
-        # logger.debug('*' * 50)
-        # logger.debug(data[2])
-        img, gt_boxes = data[0], data[1]
-        logger.debug(img.size())
-        if gpu:
-            img = img.cuda()
-            gt_boxes = gt_boxes.cuda()
-
-        input = (img, gt_boxes.float())
-        # set localizatin layer image size
-        self.setImageSize(img.size(2), img.size(3))
-
-        if self.opt.dtp_train:
-            dtp = data[2]
-            if gpu:
-                dtp = dtp.cuda()
-
-            input += (Variable(dtp.float()),)
-
-        out = self.forward(input)
+    def post_processing(self, out):
         wordness_scores = out[0]
         pos_roi_boxes = out[1]
         predict_boxes = out[3]
@@ -423,11 +362,10 @@ class CtrlFNet(torch.nn.Module):
 
         num_boxes = wordness_scores.size(0)
         num_pos = pos_roi_boxes.size(0)
-        logger.debug(gt_boxes.size())
         # Compute final objectness loss and gradient
         wordness_labels = torch.zeros(num_boxes, dtype=torch.long).view(-1, 1)
         wordness_labels[:num_pos].fill_(1)
-        if gpu:
+        if self.opt.gpu:
             wordness_labels = wordness_labels.cuda()
 
         wordness_labels = wordness_labels.view(-1)
@@ -436,28 +374,27 @@ class CtrlFNet(torch.nn.Module):
                               * self.opt.end_objectness_weight
 
         if self.opt.dtp_train:
-            pos_roi_boxes = pos_roi_boxes[:num_pos // 2]
-            gt_boxes = gt_boxes[:num_pos // 2]
+            rpn_pos = out[6]
+            pos_roi_boxes = pos_roi_boxes[:rpn_pos]
+            gt_boxes = gt_boxes[:rpn_pos]
 
         # this one multiplies by the weight inside the loss so we don't do it manually.
         end_box_reg_loss = self.box_reg_loss.forward((pos_roi_boxes, final_box_trans), gt_boxes)
 
         total_loss = mid_loss + end_objectness_loss + end_box_reg_loss
         total_loss.backward()
-        #print(total_loss)
+        # print(total_loss)
         ll_losses = self.localization_layer.stats.losses
         losses = {
-            'mo': ll_losses.obj_loss_pos.cpu() + ll_losses.obj_loss_neg.cpu(),
-            'bd': ll_losses.box_decay_loss.cpu(),
-            'mbr': ll_losses.box_reg_loss.cpu(),
-            'eo': end_objectness_loss.data.cpu(),
-            'ebr': end_box_reg_loss.data.cpu(),
+            'mid-obj': ll_losses.obj_loss_pos.cpu() + ll_losses.obj_loss_neg.cpu(),
+            'box-decay': ll_losses.box_decay_loss.cpu(),
+            'mid-reg': ll_losses.box_reg_loss.cpu(),
+            'end-obj': end_objectness_loss.data.cpu(),
+            'end-reg': end_box_reg_loss.data.cpu(),
             'total_loss': total_loss.data.cpu(),
         }
 
         for k, v in losses.items():
             losses[k] = v.item()
-        if self.opt.dtp_train:
-            return losses, predict_boxes, out[-1]
-        else:
-            return losses, predict_boxes
+        
+        return losses, predict_boxes

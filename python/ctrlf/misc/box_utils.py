@@ -7,93 +7,42 @@ Created on Thu Oct 12 10:25:01 2017
 """
 import torch
 
-def xcycwh_to_x1y1x2y2_batch(boxes):
-    """
-    Boxes are N x B x 4
-    """
-    
-    minibatch = True
-    if boxes.ndimension() == 2:
-        minibatch = False
-        boxes = boxes.view(1, boxes.size(1), 4)
-  
-    xc = boxes[:, :, 0]
-    yc = boxes[:, :, 1]
-    w = boxes[:, :, 2]
-    h = boxes[:, :, 3]
-    
-    wh = w / 2.0
-    hh = h / 2.0
-    x1 = xc - wh
-    x2 = xc + wh
-    y1 = yc - hh
-    y2 = yc + hh
-    ret = torch.stack((x1, y1, x2, y2), dim=2)
-    
-    if not minibatch:
-        ret = ret.view(boxes.size(1), 4)
-  
-    return ret    
-
-def x1y1x2y2_to_xcycwh_batch(boxes):
-    """
-    Boxes are N x 4
-    """
-    minibatch = True
-    if boxes.ndimension() == 2:
-        minibatch = False
-        boxes = boxes.view(1, boxes.size(1), 4)
-  
-    x1 = boxes[:, :, 0]
-    y1 = boxes[:, :, 1]
-    x2 = boxes[:, :, 2]
-    y2 = boxes[:, :, 3]
-    
-    xc = (x1 + x2) / 2.0
-    yc = (y1 + y2) / 2.0
-    w = x2 - x1
-    h = y2 - y1
-    ret = torch.stack((xc, yc, w, h), dim=2)
-    
-    if not minibatch:
-        ret = ret.view(boxes.size(1), 4)
-    return ret
-
 def xcycwh_to_x1y1x2y2(boxes):
     """
     Boxes are N x 4
     """
-    xc = boxes[:, 0]
-    yc = boxes[:, 1]
-    w = boxes[:, 2]
-    h = boxes[:, 3]
-    
-    #First version, probably correct    
-    wh = w / 2.0
-    hh = h / 2.0
-    
-    x1 = xc - wh
-    x2 = xc + wh
-    y1 = yc - hh
-    y2 = yc + hh
-    
-    ret = torch.stack((x1, y1, x2, y2), dim=1)
+    with torch.no_grad():
+        xc = boxes[:, 0]
+        yc = boxes[:, 1]
+        w = boxes[:, 2]
+        h = boxes[:, 3]
+
+        wh = w / 2.0
+        hh = h / 2.0
+
+        x1 = xc - wh
+        x2 = xc + wh
+        y1 = yc - hh
+        y2 = yc + hh
+
+        ret = torch.stack((x1, y1, x2, y2), dim=1)
     return ret    
 
 def x1y1x2y2_to_xcycwh(boxes):
     """
     Boxes are N x 4
     """
-    x1 = boxes[:, 0]
-    y1 = boxes[:, 1]
-    x2 = boxes[:, 2]
-    y2 = boxes[:, 3]
-    
-    xc = (x1 + x2) / 2.0
-    yc = (y1 + y2) / 2.0
-    w = x2 - x1
-    h = y2 - y1
-    ret = torch.stack((xc, yc, w, h), dim=1)
+    with torch.no_grad():
+        x1 = boxes[:, 0]
+        y1 = boxes[:, 1]
+        x2 = boxes[:, 2]
+        y2 = boxes[:, 3]
+
+        xc = (x1 + x2) / 2.0
+        yc = (y1 + y2) / 2.0
+        w = x2 - x1
+        h = y2 - y1
+        ret = torch.stack((xc, yc, w, h), dim=1)
     return ret
 
 def clip_boxes(boxes_in, bounds, format):

@@ -21,7 +21,6 @@ class BatchBilinearSamplerBHWD(torch.nn.Module):
         grids = input[1]
     
         assert inputImages.ndimension()==4
-        assert grids.ndimension()==4
         assert inputImages.size(0)==grids.size(0) # batch
         assert grids.size(3)==2 # coordinates
 

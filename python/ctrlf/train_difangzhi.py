@@ -1,43 +1,39 @@
 import os
+import torch
 from PIL import Image, ImageDraw
 import logging
 import easydict
+import datetime
 import time
 import numpy as np
-import torch
-from misc.dataloader import DataLoader
+from torch.utils.data import DataLoader
 import torch.optim as optim
-import misc.datasets as datasets
 from misc.rcnn_dataset import RcnnDataset, RandomSampler
 import ctrlfnet_model as ctrlf
 from train_opts import parse_args
 from evaluate import mAP
-import cv2
-
 
 logging.basicConfig(level=logging.DEBUG,
                     format='[%(asctime)s, %(levelname)s], %(message)s')
 logger_name = "ctrlf-debugger"
 logger = logging.getLogger(logger_name)
 opt = parse_args()
+print("load trainset")
+trainset = RcnnDataset(opt, True, True, logger, '/mnt/data1/dengbowen/no_train/', 'difangzhi.json',
+                       'difangzhi.h5')
+print("load testset")
+testset = RcnnDataset(opt, True, False, logger, '/mnt/data1/dengbowen/no_test/', 'test.json',
+                      'test.h5')
+print("finish loading dataset")
 
-
-
-trainset = RcnnDataset(opt, True, logger, '/mnt/data1/dengbowen/no/', 'difangzhi.json',
-                               'difangzhi.h5')
-testset = RcnnDataset(opt, True, logger, '/mnt/data1/dengbowen/test/', 'test.json',
-                                'test.h5')
-
-    # all have been resized!
-    # out = (img, boxes) train
-    # out = (img, oshape, boxes, proposals) not train
- #   valset = RcnnDataset(opt, False, logger, '/data2/dengbowen/work/samples/difangzhi_for_ctrlf/', 'difangzhi.json')
-    #testset = datasets.Dataset(opt, 'test', logger)
-train_sampler = RandomSampler(opt.max_iters, True)
-test_sampler = RandomSampler(opt.max_iters, False)
+# all have been resized!
+# out = (img, boxes) train
+# out = (img, oshape, boxes, proposals) not train
+#   valset = RcnnDataset(opt, False, logger, '/data2/dengbowen/work/samples/difangzhi_for_ctrlf/', 'difangzhi.json')
+# testset = datasets.Dataset(opt, 'test', logger)
+train_sampler = RandomSampler(None, opt.max_iters)
 trainloader = DataLoader(trainset, batch_size=1, sampler=train_sampler, pin_memory=True)
-testloader = DataLoader(testset, batch_size=1, shuffle=test_sampler, pin_memory=True)
-print("data load finish")
+testloader = DataLoader(testset, batch_size=1, shuffle=False, pin_memory=True)
 
 
 # initialize the Ctrl-F-Net model object
@@ -49,7 +45,7 @@ if show:
 
 model.cuda()
 optimizer = optim.Adam(model.parameters(), opt.learning_rate, (opt.beta1, opt.beta2), opt.epsilon, opt.weight_decay)
-keys = ['bd', 'ebr', 'eo', 'mbr', 'mo', 'total_loss']
+keys = ['box-decay', 'end-reg', 'end-obj', 'mid-reg', 'mid-obj', 'total_loss']
 running_losses = {k: 0.0 for k in keys}
 
 it = 0
@@ -69,17 +65,12 @@ args.num_workers = 6
 
 trainlog = ''
 start = time.time()
-loss_history, mAPs = [], []
 
 if opt.weights:
     opt.save_id += '_pretrained'
 
 if not os.path.exists('checkpoints/ctrlfnet/'):
     os.makedirs('checkpoints/ctrlfnet/')
-
-oargs = ('ctrlfnet', opt.dataset, opt.fold, opt.save_id)
-out_name = 'checkpoints/%s/%s_%d_fold%s_best_val.pt' % oargs
-
 
 def test(img, boxes, i):
     img += 34.42953730765813
@@ -92,6 +83,7 @@ def test(img, boxes, i):
         d.rectangle([xc - w // 2, yc - h // 2, xc + w // 2, yc + h // 2], outline='white')
     im.save("/data2/dengbowen/work/samples/ctrlf-out/predict{}.png".format(i))
 
+
 def test_gt(img, boxes, i):
     img += 34.42953730765813
     img = img * 255
@@ -103,30 +95,55 @@ def test_gt(img, boxes, i):
         d.rectangle([xc - w // 2, yc - h // 2, xc + w // 2, yc + h // 2], outline='white')
     im.save("/data2/dengbowen/work/samples/ctrlf-out/gt{}.png".format(i))
     print(i)
+
+model.train()
 for data in trainloader:
     optimizer.zero_grad()
-    losses, predict_boxes = model.forward_backward(logger, data, True)
+    #test(data[0].detach().cpu().numpy(), data[1].detach().cpu().numpy(), it)
+    # [1, 1, 1720, 1032]  [1, 260, 4] [1, 260, 108]
+    # make sure use float32 instead of float64
+    img, gt_boxes = data[0].float(), data[1].float()
+    # logger.debug(img.size())
+    if args.gpu:
+        img = img.cuda()
+        gt_boxes = gt_boxes.cuda()
+
+
+    input = (img, gt_boxes)
+    if opt.dtp_train:
+        proposals = data[2].float()
+        if args.gpu:
+            proposals = proposals.cuda()
+        input += (proposals, )
+    losses, predict_boxes = model(input)
     # # logger.debug(losses)
     optimizer.step()
+    torch.cuda.empty_cache()
     # print statistics
     running_losses = {k: v + losses[k] for k, v in running_losses.items()}
     if it % opt.print_every == opt.print_every - 1:
         running_losses = {k: v / opt.print_every for k, v in running_losses.items()}
         loss_string = "[iter %5d] " % (it + 1)
         for k, v in running_losses.items():
-            loss_string += "%s: %.5f | " % (k, v)
+            loss_string += "%s: %.2f | " % (k, v)
         trainlog += loss_string
         if show:
             print(loss_string)
-        logger.debug("running_losses: {}".format(running_losses))
-        vals = [val for val in list(running_losses.values())]
-        loss_history.append((it, vals))
         running_losses = {k: 0.0 for k, v in running_losses.items()}
 
     if it % opt.eval_every == opt.eval_every - 1:
-       # predict_boxes_view = predict_boxes.detach().cpu().numpy()
-       # test(data[0].cpu().numpy().squeeze(), predict_boxes_view, it)
-       mAP(model, testloader, args, logger, it)
+        # predict_boxes_view = predict_boxes.detach().cpu().numpy()
+        # test(data[0].cpu().numpy().squeeze(), predict_boxes_view, it)
+        re, pr = mAP(model, testloader, args, logger, it, True)
+        with open("/mnt/data1/dengbowen/res6.txt", "a", encoding="utf-8") as f:
+            f.write("test at {} Threshold25 Recall:{:.2%}, Precision:{:.2%}\n".format(it, re[0], pr[0]))
+            f.write("test at {} Threshold50 Recall:{:.2%}, Precision:{:.2%}\n".format(it, re[1], pr[1]))
+            f.write("test at {} Threshold75 Recall:{:.2%}, Precision:{:.2%}\n".format(it, re[2], pr[2]))
+            f.write("-"* 30 + "\n")
+        if re[1] > 0.85 and pr[1] > 0.9:
+            torch.save(model.state_dict(), os.path.join('./checkpoints/ctrlfnet', datetime.datetime.now().strftime("%m-%d %H:%M:%S") +
+                                                   'rcnn_{:.2f}_{:.2f}.pth.tar'.format(re[1], pr[1])))
+        #print("test at {} Recall:{}, Precision:{}".format(it, re, pr))
     # if it % opt.reduce_lr_every == opt.reduce_lr_every - 1:
     #     optimizer.param_groups[0]['lr'] /= 10.0
 
@@ -147,5 +164,4 @@ for data in trainloader:
 #     with open(out_name + '.json', 'w') as f:
 #         json.dump(d, f)
 #
-#     duration = time.time() - start
-#     print("training model took %0.2f hours" % (duration / 3600))
+#     duration = time.time(

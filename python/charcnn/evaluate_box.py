@@ -97,9 +97,9 @@ def evaluate(gt_dir, detect_dir, threshold):
 
 
 if __name__ == '__main__':
-    #evaluate('c:/users/deng/desktop/g', 'c:/users/deng/desktop/d', 0.5)
-    img = Image.open("c:/users/deng/desktop/381.jpg")
-    with open("c:/users/deng/desktop/d/381.txt", "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    boxes = list(map(lambda x: list(map(int,x.split())), lines))
-    test_gt(img, boxes, 381)
+    evaluate('c:/users/deng/desktop/g', 'c:/users/deng/desktop/d', 0.5)
+    # img = Image.open("c:/users/deng/desktop/381.jpg")
+    # with open("c:/users/deng/desktop/d/381.txt", "r", encoding="utf-8") as f:
+    #     lines = f.readlines()
+    # boxes = list(map(lambda x: list(map(int,x.split())), lines))
+    # test_gt(img, boxes, 381)

@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
 Created on Thu Oct 12 23:01:57 2017
@@ -13,11 +14,7 @@ from . import utils
 class BoxSamplerHelper(torch.nn.Module):
     def __init__(self, opt):
         super(BoxSamplerHelper, self).__init__()
-        if 'box_sampler' in opt:
-            self.box_sampler = opt['box_sampler']  # For testing
-        else:
-            self.box_sampler = box_sampler.BoxSampler(opt)
-        print(self.box_sampler)
+        self.box_sampler = box_sampler.BoxSampler(opt)
         self.contrastive_loss = opt['contrastive_loss']
         self.return_index = utils.getopt(opt, 'return_index', False)
 
@@ -71,7 +68,7 @@ class BoxSamplerHelper(torch.nn.Module):
         assert N == 1, 'Only minibatches of 1 are supported'
 
         # Run the sampler to get the indices of the positive and negative boxes
-        idxs = self.box_sampler.forward((input_boxes.data, target_boxes.data))
+        idxs = self.box_sampler.forward((input_boxes, target_boxes))
         pos_input_idx = idxs[0]
         pos_target_idx = idxs[1]
         neg_input_idx = idxs[2]
@@ -87,7 +84,8 @@ class BoxSamplerHelper(torch.nn.Module):
             d = input_data[i]
             D = d.size(2)
             pos.append(d[:, pos_input_idx].view(num_pos, D))
-            neg.append(d[:, neg_input_idx].view(num_neg, D))
+            if i == 0 or i == 3:
+                neg.append(d[:, neg_input_idx].view(num_neg, D))
 
         for i in range(len(target_data)):
             d = target_data[i]

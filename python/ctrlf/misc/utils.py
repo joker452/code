@@ -6,7 +6,6 @@ Created on Wed Oct 11 16:57:59 2017
 @author: tomas
 """
 
-import os
 import numpy as np
 import easydict
 
@@ -15,12 +14,8 @@ from skimage.color import rgb2gray
 import skimage.filters as fi
 import skimage.transform as tf
 import skimage.morphology as mor
-from threading import Thread
-from queue import Queue
 from skimage.io import imread
 np.errstate(divide='ignore', invalid='ignore')
-
-
 
 def copy_log(rt, rf=None):
     for k, v in rt['log'].items():

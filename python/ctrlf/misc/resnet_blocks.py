@@ -1,4 +1,3 @@
-#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
 Created on Tue Nov  7 14:25:10 2017
@@ -8,9 +7,11 @@ Created on Tue Nov  7 14:25:10 2017
 
 import torch.nn as nn
 
+
 def conv3x3(in_planes, out_planes, stride=1, bias=False):
     "3x3 convolution with padding"
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=bias)
+
 
 class Bottleneck(nn.Module):
     '''
@@ -22,7 +23,7 @@ class Bottleneck(nn.Module):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(inplanes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes)
@@ -40,16 +41,17 @@ class Bottleneck(nn.Module):
         out = self.bn2(out)
         out = self.relu(out)
         out = self.conv2(out)
-        
+
         out = self.bn3(out)
         out = self.relu(out)
         out = self.conv3(out)
-        
+
         if self.downsample is not None:
             orig = self.downsample(x)
 
         out += orig
         return out
+
 
 class BasicBlock(nn.Module):
     expansion = 1

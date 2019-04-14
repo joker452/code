@@ -6,6 +6,7 @@ import h5py
 import torch
 import numpy as np
 from torch.utils.data import Dataset
+from torch.utils.data import Sampler
 # may change to skimage?
 from scipy.misc import imresize
 from skimage.io import imread
@@ -48,12 +49,10 @@ def create_db(images, db_file, max_shape):
 
 class RcnnDataset(Dataset):
 
-    def __init__(self, opt, is_train, logger, data_dir, json_path, db_file):
+    def __init__(self, opt, use_dtp, is_train, logger, data_dir, json_path, db_file):
         super(Dataset, self).__init__()
-        self.opt = opt
         # TODO: change this
-        self.opt.dtp_train = True
-        self.is_train = is_train
+        self.use_dtp = use_dtp
         self.logger = logger
         # all image data, memory for speed
         self.target_image_size = float(opt.image_size)
@@ -302,33 +301,30 @@ class RcnnDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        # TODO: change dtp_train
         ind = index % self.image_number
         img = self.images[ind]
         img = self.transforms(img)
         gt_boxes = self.data[ind]['gt_boxes']
         out = (img, gt_boxes)
-        proposals = self.data[ind]['region_proposals']
-        out += (proposals,)
-
+        if self.use_dtp:
+            proposals = self.data[ind]['region_proposals']
+            out += (proposals,)
         return out
 
 
-class RandomSampler(object):
+class RandomSampler(Sampler):
     """Samples num_iters times the idxes from class
     Arguments:
         data_source (Dataset): dataset to sample from
     """
 
-    def __init__(self, num_iters, is_train):
+    def __init__(self, dataset, num_iters):
+        super(RandomSampler, self).__init__(dataset)
         self.num_iters = num_iters
-        self.is_train = is_train
 
     def __iter__(self):
-        if self.is_train:
-            return iter(torch.randperm(self.num_iters))
-        else:
-            return iter(torch.arange(self.num_iters, dtype=torch.int64))
+
+        return iter(torch.randperm(self.num_iters))
 
     def __len__(self):
         return self.num_iters

@@ -55,8 +55,8 @@ class BoxRegressionCriterion(nn.Module):
         mse_mask = torch.squeeze(x.lt(1))
         l1_mask = torch.squeeze(x.ge(1))
         
-        use_mse = mse_mask.float().sum().data[0] > 0
-        use_l1 = l1_mask.float().sum().data[0] > 0
+        use_mse = mse_mask.float().sum().item() > 0
+        use_l1 = l1_mask.float().sum().item() > 0
         
         assert use_mse or use_l1, 'this should never happen, in box_regression_criterion.py'
         
@@ -82,7 +82,7 @@ class BoxRegressionCriterion(nn.Module):
         mask = torch.gt(torch.abs(target_transforms).max(dim=1, keepdim=True)[0], 10)
         mask = torch.squeeze(mask)
         mask_sum = mask.sum()# / 4
-        if mask_sum.data[0] > 0:
+        if mask_sum.data.item() > 0:
             mask_nonzero = torch.squeeze(mask.nonzero())
             transforms = transforms.clone()
             transforms.index_fill_(0, mask_nonzero, 0)

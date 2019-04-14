@@ -39,6 +39,7 @@ class MakeAnchors(torch.nn.Module):
             self.anchors = torch.nn.Parameter(anchors.clone())
         else:
             self.anchors = anchors.clone()
+        self.anchors.requires_grad = True
 
     def forward(self, input):
         N, H, W = input.size(0), input.size(2), input.size(3)
@@ -56,16 +57,10 @@ class MakeAnchors(torch.nn.Module):
         yc = y_centers.view(1, 1, H, 1).expand(N, k, H, W)
 
         # default False
-        if self.tunable_anchors:
-            w = self.anchors[0].view(1, k, 1, 1).expand(N, k, H, W)
-            h = self.anchors[1].view(1, k, 1, 1).expand(N, k, H, W)
-        else:
-            anchors = torch.autograd.Variable(self.anchors, requires_grad=True)
-            if gpu:
-                anchors = anchors.cuda()
-
-            w = anchors[0].view(1, k, 1, 1).expand(N, k, H, W)
-            h = anchors[1].view(1, k, 1, 1).expand(N, k, H, W)
+        if gpu:
+            self.anchors = self.anchors.cuda()
+        w = self.anchors[0].view(1, k, 1, 1).expand(N, k, H, W)
+        h = self.anchors[1].view(1, k, 1, 1).expand(N, k, H, W)
         # [1, k, 4, H, W] -> [1, 4*k, H, W] k anchors, each have x_center, y_center, w, h
         output = torch.stack([xc, yc, w, h], dim=2).view(N, 4 * k, H, W)
         return output

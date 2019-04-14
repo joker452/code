@@ -67,6 +67,7 @@ class BoxToAffine(torch.nn.Module):
         assert input.size(1) == 4, 'Expected input of shape B x 4'
         assert self.H and self.W, 'Need to call setSize before calling forward'
 
+        # B
         xc = input[:, 0]
         yc = input[:, 1]
         w = input[:, 2]
@@ -76,8 +77,8 @@ class BoxToAffine(torch.nn.Module):
         th23 = torch.div((xc * 2) - 1 - self.W, self.W - 1)
         th22 = torch.div(w, self.W)
         th11 = torch.div(h, self.H)
-        th12 = torch.autograd.Variable(torch.zeros_like(xc.data))
-        th21 = torch.autograd.Variable(torch.zeros_like(xc.data))
+        th12 = torch.zeros_like(xc)
+        th21 = torch.zeros_like(xc)
 #        output = torch.autograd.Variable(torch.zeros(B, 2, 3).type_as(input.data), requires_grad=True)
 #        output[:, 0, 0] = th11
 #        output[:, 0, 2] = th13
@@ -87,6 +88,7 @@ class BoxToAffine(torch.nn.Module):
 #        r2 = torch.stack((th21, th22, th23), dim=1).view(B, 1, 3)
         
         #W, H are flipped compared to torch version
+        # (B, B, B)-> (B,3)-> (B, 1, 3)
         r1 = torch.stack((th22, th12, th23), dim=1).view(B, 1, 3)
         r2 = torch.stack((th21, th11, th13), dim=1).view(B, 1, 3)
         
