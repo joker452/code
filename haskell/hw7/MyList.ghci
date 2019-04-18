@@ -1,0 +1,35 @@
+-- 可以将以下所有内容直接 copy 到 GHCi 中
+-- 也可 stack ghci --ghci-options "-ghci-script MyList.ghci"
+
+import MyList
+
+-- definitions
+t0 :: List Int; t0 = Nil
+t1 = 1:~Nil
+t2 = 1:~2:~Nil
+t3 = 1:~2:~3:~Nil
+t3' = 1:~2:~4:~Nil
+t3'' = 2:~1:~1:~Nil
+map' f Nil = Nil; map' f (x:~xs) = f x :~ map' f xs
+tn = 1 :~ map' (+1) tn -- 无限长的列表，相当于 [1..]
+
+putStrLn "-- Eq --"
+t0 == t0
+t2 == 1:~2:~Nil
+t1 == t0
+t1 == tn
+tn /= t1
+
+putStrLn "-- Ord --"
+t0 <= t0
+t0 < t0
+t3 < t3'
+t3' < t3''
+t3 < tn
+t3' < tn
+
+putStrLn "-- Show --"
+t0
+t1
+t3'
+take 25 $ show tn -- 对 show 参数为⽆无限⻓长的列列表的情况不不作要求，仅作为参考
