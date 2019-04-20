@@ -7,11 +7,9 @@ cSucc cx f = cx f . f
 
 cToInt cx = cx (+1) 0
 
-cPlus cm cn f = cm f . (cn f)
+cPlus cm cn f = cm f . cn f
 
-cMultHelper m cn res = if m > 1 then cMultHelper (m - 1) cn (cPlus cn res)
-                       else cPlus cn res
-cMult cm cn = cMultHelper m cn c0 where m = cToInt cm
+cMult cm cn = cm . cn
 
 cExp cm cn = cn cm
 
