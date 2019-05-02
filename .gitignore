@@ -5,6 +5,7 @@
 *.o
 *.exe
 *.a
+*.swp
 cmake-build-debug/
 __pycache__/
 .cproject
