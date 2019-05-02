@@ -1,6 +1,5 @@
 #ifndef DEBUG_H
 #define DEBUG_H
-
 #ifdef NDEBUG
 #define debug(M, ...)
 #else
