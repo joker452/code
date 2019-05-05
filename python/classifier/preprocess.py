@@ -56,13 +56,12 @@ def find_region(row_value_threshold, col_value_threshold, row_range_threshold, c
 
 
 
-img_dir = r"d:\project\lunwen\data\bw_difangzhi\\"
+img_dir = r"c:\Users\Deng\Desktop\difangzhi_for_ctrlf\\"
 images = [img_dir + f.name for f in os.scandir(img_dir) if f.name.endswith("jpg")]
 images.sort(key=lambda item: (len(item), item))
 
 for i, image_path in enumerate(images):
     text_path = img_dir + image_path.split('\\')[-1][: -3] + 'txt'
-    image_path = r"d:\project\lunwen\data\difangzhi_for_ctrlf\1.jpg"
     img = cv2.imread(image_path)
     img = binary_fillhole(img)
     h, w = img.shape
@@ -82,7 +81,7 @@ for i, image_path in enumerate(images):
             y2 -= row_start
             new_line = str(x1) + ' ' + str(y1) + ' ' + str(x2) + ' ' + str(y2) + '\n'
             new_lines.append(new_line)
-    with open('./out/{}.txt'.format(i), 'w', encoding='utf-8') as f:
+    with open('./bw_out/{}.txt'.format(i), 'w', encoding='utf-8') as f:
         f.writelines(new_lines)
     img = img[row_start: row_end, col_start: col_end]
-    cv2.imwrite("./out/{}.jpg".format(i), img)
+    cv2.imwrite("./bw_out/{}.jpg".format(i), img)
