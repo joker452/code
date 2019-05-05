@@ -1,19 +1,11 @@
 import os
 import cv2
+import sys
 import untangle
+sys.path.append('./')
+from makedir import mkdir
 
 
-def mkdir(dir_name):
-    if not os.path.isdir(dir_name):
-        try:
-            os.makedirs(dir_name)
-        except OSError:
-            print('Can not make directory for {}'.format(dir_name))
-            raise OSError
-        else:
-            print("Make directory for {}".format(dir_name))
-    else:
-        print("{} already exists".format(dir_name))
 
 
 def make_dataset(root_dir):
@@ -71,7 +63,6 @@ def make_dataset(root_dir):
             img = cv2.imread(os.path.join(img_dir, page_name), -1)
             with open(os.path.join(out_dir, "labels.txt"), "a", encoding='utf-8') as f:
                 for k in range(len(labels)):
-                    total += 1
                     position = labels[k]['coordinates']
                     char = img[position[1]: position[3], position[0]: position[2]]
                     h = position[3] - position[1]
@@ -82,5 +73,5 @@ def make_dataset(root_dir):
 
 
 if __name__ == '__main__':
-    root_dir = "d:/lunwen/data/difangzhi"
+    root_dir = "d:/project/lunwen/data/difangzhi"
     make_dataset(root_dir)

@@ -1,20 +1,32 @@
 #include "util.h"
 #include <iostream>
 #include <fstream>
+
 using namespace std;
 using namespace cv;
+
+timespec diff(timespec start, timespec end) {
+    timespec dif;
+    if ((end.tv_nsec - start.tv_nsec) < 0) {
+        dif.tv_sec = end.tv_sec - start.tv_sec - 1;
+        dif.tv_nsec = 1000000000 + end.tv_nsec - start.tv_nsec;
+    } else {
+        dif.tv_sec = end.tv_sec - start.tv_sec;
+        dif.tv_nsec = end.tv_nsec - start.tv_nsec;
+    }
+    return dif;
+}
 
 void processManuscripts(string file) {
     Manuscript manuscript;
     manuscript.fileName = file;
     manuscript.image = imread(manuscript.fileName);
-
     detectChineseLetters(manuscript);
 
 }
 
 void detectChineseLetters(Manuscript &manuscript) {
-    std::cout << "Detecting letters in " << manuscript.fileName << endl;
+    cout << "Detecting letters in " << manuscript.fileName << endl;
     size_t found = manuscript.fileName.find_last_of("/\\");
     if (found == string::npos) {
         cerr << "path parser fail!" << endl;
@@ -120,11 +132,11 @@ void detectChineseLetters(Manuscript &manuscript) {
     for (int i = 0; i < chineseLetterImages.size(); i++) {
         rectangle(detectionImage, boundingRects.at(i), color, 2);
     }
-    imwrite("./res_img" + file_part_name + ".jpg", detectionImage);
+    imwrite("./res_img/" + file_part_name + ".jpg", detectionImage);
 
     // write results to file
     chineseLetterImages = extractImages(manuscript.image, boundingRects);
-    ofstream out(("./res_txt" + file_part_name + ".txt").c_str());
+    ofstream out(("./res_txt/" + file_part_name + ".txt").c_str());
     for (int i = 0; i < chineseLetterImages.size(); ++i)
         out << boundingRects.at(i).x << " " << boundingRects.at(i).y
             << " " << boundingRects.at(i).x + boundingRects.at(i).width
@@ -142,22 +154,6 @@ void setPixel(Mat &image, int x, int y, Vec3b pixel) {
 
 int getIntensity(Vec3b pixel) {
     return int((pixel.val[0] + pixel.val[1] + pixel.val[2]) / 3.0);
-}
-
-
-void intensityThresholdFilter(Mat &input, Mat &output, int minIntensity, int maxIntensity, bool binarize) {
-    output = input.clone();
-    for (int y = 0; y < output.rows; y++) {
-        for (int x = 0; x < output.cols; x++) {
-            int intensity = getIntensity(getPixel(output, x, y));
-            if (intensity < minIntensity || intensity > maxIntensity) {
-                setPixel(output, x, y, Vec3b(0, 0, 0));
-            } else {
-                if (binarize)
-                    setPixel(output, x, y, Vec3b(255, 255, 255));
-            }
-        }
-    }
 }
 
 void binaryNeighbourhoodMask(Mat &input, Mat &output, int minActivity) {
@@ -214,13 +210,14 @@ void binaryNeighbourhoodMask(Mat &input, Mat &output, int minActivity) {
     }
 }
 
-std::vector<Interval>
+
+vector<Interval>
 intensityProjectionFilter(Mat &input, Mat &output, int projectionID, int xMin, int xMax, int yMin, int yMax,
                           int mapToZeroThreshold, int minLength) {
     output = input.clone();
 
-    std::vector<int> intensityProjection;
-    std::vector<Interval> intervals;
+    vector<int> intensityProjection;
+    vector<Interval> intervals;
 
     if (projectionID == VERTICAL) {
         //Compute average intensity at each row or column and erase if value below mapToZero threshold

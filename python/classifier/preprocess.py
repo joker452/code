@@ -2,6 +2,7 @@ import os
 import cv2
 import numpy as np
 from PIL import ImageDraw, Image
+from utils.makedir import mkdir
 
 def binary_fillhole(img):
     # blackhat
@@ -59,7 +60,7 @@ def find_region(row_value_threshold, col_value_threshold, row_range_threshold, c
 img_dir = r"c:\Users\Deng\Desktop\difangzhi_for_ctrlf\\"
 images = [img_dir + f.name for f in os.scandir(img_dir) if f.name.endswith("jpg")]
 images.sort(key=lambda item: (len(item), item))
-
+mkdir("bw_out")
 for i, image_path in enumerate(images):
     text_path = img_dir + image_path.split('\\')[-1][: -3] + 'txt'
     img = cv2.imread(image_path)

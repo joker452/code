@@ -1,20 +1,11 @@
+import os
+import sys
+import struct
 import numpy as np
 from PIL import Image
-import os
-import struct
 
-
-def mkdir(dir_name):
-    if not os.path.isdir(dir_name):
-        try:
-            os.makedirs(dir_name)
-        except OSError:
-            print('Can not make directory for {}'.format(dir_name))
-            raise OSError
-        else:
-            print("Make directory for {}".format(dir_name))
-    else:
-        print("{} already exists".format(dir_name))
+sys.path.append('./')
+from makedir import mkdir
 
 
 def dgr2image(data_dir, file_names, image_dir, label_dir):
@@ -24,7 +15,7 @@ def dgr2image(data_dir, file_names, image_dir, label_dir):
         with open(os.path.join(data_dir, file_name), 'rb') as f:
             header_size = struct.unpack("<I", np.fromfile(f, dtype='uint8', count=4))[0]
             # skip format code and illustration
-            np.fromfile(f, dtype='uint8', count=header_size-28)
+            np.fromfile(f, dtype='uint8', count=header_size - 28)
             code_type = hex(np.fromfile(f, dtype='uint8', count=20)[0])
             code_length = struct.unpack("<H", np.fromfile(f, dtype='uint8', count=2))[0]
             bits_per_pixel = struct.unpack("<H", np.fromfile(f, dtype='uint8', count=2))[0]
@@ -53,19 +44,20 @@ def dgr2image(data_dir, file_names, image_dir, label_dir):
                         char_h = struct.unpack("<H", np.fromfile(f, dtype='uint8', count=2))[0]
                         char_w = struct.unpack("<H", np.fromfile(f, dtype='uint8', count=2))[0]
                         try:
-                            w.write(label + ' ' + str(top) + ' ' + str(left) + ' ' + str(char_h) + ' ' + str(char_w) + ' ')
+                            w.write(
+                                label + ' ' + str(top) + ' ' + str(left) + ' ' + str(char_h) + ' ' + str(char_w) + ' ')
                         except UnicodeDecodeError:
                             print(file_name, line, chars)
                         if bits_per_pixel == 1:
                             char = np.fromfile(f, 'uint8', char_h * ((char_w + 7) / 8)).reshape(char_h,
-                                                (char_w + 7) / 8)
+                                                                                                (char_w + 7) / 8)
                         else:
                             char = np.fromfile(f, 'uint8', char_h * char_w).reshape(char_h, char_w)
                         try:
-                          text_image[top: top + char_h, left: left + char_w] = char
-                          if top + char_h >= height or left + char_w >= width:
-                              # some annotation may be out of boundary
-                              print("File{:s}, line{:d}, char{:d}".format(file_name, line, chars))
+                            text_image[top: top + char_h, left: left + char_w] = char
+                            if top + char_h >= height or left + char_w >= width:
+                                # some annotation may be out of boundary
+                                print("File{:s}, line{:d}, char{:d}".format(file_name, line, chars))
                         except ValueError:
                             print("File{:s}, line{:d}, char{:d}".format(file_name, line, chars))
                     w.write('\n')

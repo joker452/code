@@ -1,21 +1,13 @@
-import numpy as np
-from PIL import Image
 import os
+import sys
 import pickle
 import struct
+import numpy as np
+from PIL import Image
 
+sys.path.append('./')
+from makedir import mkdir
 
-def mkdir(dir_name):
-    if not os.path.isdir(dir_name):
-        try:
-            os.makedirs(dir_name)
-        except OSError:
-            print('Can not make directory for {}'.format(dir_name))
-            raise OSError
-        else:
-            print("Make directory for {}".format(dir_name))
-    else:
-        print("{} already exists".format(dir_name))
 
 def gnt2image(data_dir, file_numbers, image_dir, label_dir, is_only3755, d):
     """
@@ -53,6 +45,7 @@ def gnt2image(data_dir, file_numbers, image_dir, label_dir, is_only3755, d):
                           encoding='utf-8') as w:
                     w.write(tag_code)
 
+
 if __name__ == '__main__':
     with open('./gbcode3755.pkl', 'rb') as f:
         d = pickle.load(f)
@@ -64,5 +57,4 @@ if __name__ == '__main__':
     label_dir = '/data2/dengbowen/character/3755labels'
     mkdir(image_dir)
     mkdir(label_dir)
-    gnt2image(data_dir, file_numbers, image_dir, label_dir,True, d)
-    
+    gnt2image(data_dir, file_numbers, image_dir, label_dir, True, d)

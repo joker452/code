@@ -1,8 +1,10 @@
 #ifndef LOCATOR_UTIL_H
 #define LOCATOR_UTIL_H
+
 #include "opencv2/objdetect/objdetect.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
+#include <time.h>
 
 using cv::Mat;
 using cv::Vec3b;
@@ -32,8 +34,6 @@ void setPixel(Mat &image, int x, int y, Vec3b pixel);
 
 void binaryNeighbourhoodMask(Mat &input, Mat &output, int minActivity);
 
-void intensityThresholdFilter(Mat &input, Mat &output, int minIntensity, int maxIntensity, bool binarize);
-
 vector<Interval>
 intensityProjectionFilter(Mat &input, Mat &output, int projectionID, int xMin, int xMax, int yMin, int yMax,
                           int mapToZeroThreshold, int minLength);
@@ -45,4 +45,7 @@ void detectChineseLetters(Manuscript &manuscript);
 double intensityFluctuations(Mat &input, int projectionID);
 
 void processManuscripts(string file);
+
+timespec diff(timespec start, timespec end);
+
 #endif
