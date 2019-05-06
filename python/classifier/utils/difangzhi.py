@@ -1,19 +1,29 @@
 import os
 import cv2
 import sys
+import pickle
 import untangle
 sys.path.append('./')
-from makedir import mkdir
+from util import mkdir, compare
+from functools import cmp_to_key
 
-
-
+def write_char(f, position, class_id, next_char_class, nnext_char_class):
+    for pos in position:
+        f.write(str(pos) + " ")
+    f.write(str(class_id) + " ")
+    f.write(str(next_char_class) + " " + str(nnext_char_class) + "\n")
 
 def make_dataset(root_dir):
-    data_dir = [f.name for f in os.scandir(root_dir) if f.is_dir() and f.name != 'images']
+    not_wanted = ('╳', '阝', '═', '︺', '︹', '━', '', '│', '□', '○', '。', '、', '\u3000', '\ue002')
+    data_dir = [f.name for f in os.scandir(root_dir) if f.is_dir() and f.name != 'out']
+    page_id = 1
+    out_dir = os.path.join(root_dir, "out")
+    mkdir(out_dir)
+    with open('./char2index.pkl', 'rb') as f:
+        index_dict = pickle.load(f)
+
     for data in data_dir:
-        out_dir = os.path.join(root_dir, data, "out")
-        mkdir(out_dir)
-        mkdir(os.path.join(out_dir, "images"))
+        #mkdir(os.path.join(out_dir, "images"))
         img_dir = os.path.join(root_dir, data, "jpg")
         xml_dir = os.path.join(root_dir, data, "xml")
         doc_list = os.listdir(xml_dir)
@@ -56,22 +66,33 @@ def make_dataset(root_dir):
                 for char_index in range(len(characters[k])):
                     # 去掉无用字符
                     char = characters[k][char_index]
-                    if char != '\u3000' and char != '\ue002':
+                    if char not in not_wanted:
                         coordinates = list(map(int, positions[k][char_index].split(',')))
                         labels.append({'text': char, 'coordinates': coordinates})
 
+            labels.sort(key=cmp_to_key(compare))
             img = cv2.imread(os.path.join(img_dir, page_name), -1)
-            with open(os.path.join(out_dir, "labels.txt"), "a", encoding='utf-8') as f:
-                for k in range(len(labels)):
+            cv2.imwrite(os.path.join(out_dir, '{}.jpg'.format(page_id)), img)
+            with open(os.path.join(out_dir, "{}.txt".format(page_id)), "a", encoding='utf-8') as f:
+                char_num = len(labels)
+                for k in range(char_num - 2):
                     position = labels[k]['coordinates']
-                    char = img[position[1]: position[3], position[0]: position[2]]
-                    h = position[3] - position[1]
-                    w = position[2] - position[0]
-                    file_name = '{}-{}-{}.jpg'.format(data, page_name[: -4], k)
-                    cv2.imwrite(os.path.join(out_dir, "images", file_name), char)
-                    f.write(file_name + " " + labels[k]['text'] + "\n")
+                    class_id = index_dict[labels[k]['text']]
+                    next_class_id = index_dict[labels[k + 1]['text']]
+                    nnext_class_id = index_dict[labels[k + 2]['text']]
+                    #char = img[position[1]: position[3], position[0]: position[2]]
+                    #file_name = '{}-{}-{}.jpg'.format(data, page_name[: -4], k)
+                    write_char(f, position, class_id, next_class_id, nnext_class_id)
+                # -2
+                write_char(f, labels[char_num - 2]['coordinates'],
+                           index_dict[labels[char_num - 2]['text']],
+                           index_dict[labels[char_num - 1]['text']], -1)
+                # -1
+                write_char(f, labels[char_num - 1]['coordinates'],
+                           index_dict[labels[char_num - 1]['text']], -1, -1)
+            page_id += 1
 
 
 if __name__ == '__main__':
-    root_dir = "d:/project/lunwen/data/difangzhi"
+    root_dir = "c:/Users/Deng/Desktop/difangzhi"
     make_dataset(root_dir)

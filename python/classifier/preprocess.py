@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 from PIL import ImageDraw, Image
-from utils.makedir import mkdir
+from utils.util import mkdir
 
 def binary_fillhole(img):
     # blackhat
@@ -56,9 +56,9 @@ def find_region(row_value_threshold, col_value_threshold, row_range_threshold, c
 
 
 
-
-img_dir = r"c:\Users\Deng\Desktop\difangzhi_for_ctrlf\\"
-images = [img_dir + f.name for f in os.scandir(img_dir) if f.name.endswith("jpg")]
+# \\ is requried at the end of the path
+img_dir = r"c:\Users\Deng\Desktop\difangzhi\out\\"
+images = [img_dir  + f.name for f in os.scandir(img_dir) if f.name.endswith("jpg")]
 images.sort(key=lambda item: (len(item), item))
 mkdir("bw_out")
 for i, image_path in enumerate(images):
@@ -75,12 +75,16 @@ for i, image_path in enumerate(images):
     with open(text_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
         for line in lines:
-            x1, y1, x2, y2 = map(int, line.split())
+            line_split = line.split()
+            x1, y1, x2, y2 = map(int, line_split[0: 4])
             x1 -= col_start
             y1 -= row_start
             x2 -= col_start
             y2 -= row_start
-            new_line = str(x1) + ' ' + str(y1) + ' ' + str(x2) + ' ' + str(y2) + '\n'
+            new_line = str(x1) + ' ' + str(y1) + ' ' + str(x2) + ' ' + str(y2) + ' '
+            for s in line_split[4: -1]:
+                new_line += s + ' '
+            new_line += line_split[-1] + '\n'
             new_lines.append(new_line)
     with open('./bw_out/{}.txt'.format(i), 'w', encoding='utf-8') as f:
         f.writelines(new_lines)

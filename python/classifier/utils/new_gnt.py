@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.append('./')
-from makedir import mkdir
+from util import mkdir
 
 
 def gnt2image(data_dir, file_numbers, image_dir, label_dir, is_only3755, d):

@@ -3,7 +3,7 @@ import cv2
 import sys
 import struct
 sys.path.append("./")
-from makedir import mkdir
+from util import mkdir
 
 
 def make_dataset(root_dir):

@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.append('./')
-from makedir import mkdir
+from util import mkdir
 
 
 def dgr2image(data_dir, file_names, image_dir, label_dir):
