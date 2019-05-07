@@ -38,8 +38,8 @@ def make_dataset(root_dir):
                 characters = []
                 positions = []
                 if hasattr(doc.page, 'text_line'):
-                    pos1 = pos2 = char1 = char2 = None
                     for text_line in doc.page.text_line:
+                        pos1 = pos2 = char1 = char2 = None
                         if hasattr(text_line, 'text'):
                             pos1 = [text['image_position'] for text in text_line.text if text['image_position']]
                             char1 = [text.cdata for text in text_line.text if text['image_position']]

@@ -25,11 +25,11 @@ def write_char(f, x1, y1, x2, y2, cur_class, next_class, nnext_class):
             str(next_class) + " " + str(nnext_class) + "\n")
 
 
-def get_table_row(images, img_dir, res_dir, out_dir):
+def get_table_row(cnn, images, img_dir, res_dir, out_dir):
     with torch.no_grad():
         trans = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
         for image in images:
-            img_name = image.split('.')[0]
+            img_name = '143'
             with open(os.path.join(res_dir, img_name + '.txt'), 'r', encoding='utf-8') as f:
                 lines = f.readlines()
             positions = []
@@ -46,16 +46,17 @@ def get_table_row(images, img_dir, res_dir, out_dir):
                         if cur_class == -1:
                             x1, y1, x2, y2 = positions[k]['coordinates']
                             cur_class = get_class(cnn, trans, img, x1, y1, x2, y2)
-                            x1, y1, x2, y2 = positions[k + 1]['coordinates']
-                            next_class = get_class(cnn, trans, img, x1, y1, x2, y2)
-                            x1, y1, x2, y2 = positions[k + 2]['coordinates']
-                            nnext_class = get_class(cnn, trans, img, x1, y1, x2, y2)
+                            _x1, _y1, _x2, _y2 = positions[k + 1]['coordinates']
+                            next_class = get_class(cnn, trans, img, _x1, _y1, _x2, _y2)
+                            _x1, _y1, _x2, _y2 = positions[k + 2]['coordinates']
+                            nnext_class = get_class(cnn, trans, img, _x1, _y1, _x2, _y2)
 
                         else:
+                            x1, y1, x2, y2 = positions[k]['coordinates']
                             cur_class = next_class
                             next_class = nnext_class
-                            x1, y1, x2, y2 = positions[k + 2]['coordinates']
-                            nnext_class = get_class(cnn, trans, img, x1, y1, x2, y2)
+                            _x1, _y1, _x2, _y2 = positions[k + 2]['coordinates']
+                            nnext_class = get_class(cnn, trans, img, _x1, _y1, _x2, _y2)
                         write_char(f, x1, y1, x2, y2, cur_class, next_class, nnext_class)
                     x1, y1, x2, y2 = positions[char_num - 2]['coordinates']
                     write_char(f, x1, y1, x2, y2, next_class, nnext_class, -1)
@@ -72,8 +73,8 @@ def create_table(db_path, table_name, src_dir):
                       CLASS INTEGER NOT NULL,
                       NEXT INTEGER NOT NULL,
                       NNEXT INTEGER NOT NULL,
-                      PRIMARY KEY(PAGE, LOCATION));'''.format(table_name))
-    indexes = [f.name for f in os.scandir(out_dir) if f.name.endswith('.txt')]
+                      PRIMARY KEY(PAGE, LOCATION, CLASS));'''.format(table_name))
+    indexes = [f.name for f in os.scandir(src_dir) if f.name.endswith('.txt')]
     rows = []
     for index in indexes:
         page = index.split('.')[0]
@@ -84,8 +85,8 @@ def create_table(db_path, table_name, src_dir):
                 location = '{} {} {} {}'.format(x1, y1, x2, y2)
                 rows.append((int(page), location, int(class_id), int(next_class), int(nnext_class)))
     cursor.executemany('INSERT INTO {} VALUES (?, ?, ?, ?, ?);'.format(table_name), rows)
-    cursor.execute("CREATE INDEX BI_CLASS_IDX ON {} (CLASS, NEXT);".format(table_name))
-    cursor.execute("CREATE INDEX TRI_CLASS_IDX ON {} (CLASS, NEXT, NNEXT);".format(table_name))
+    cursor.execute("CREATE INDEX {}_BI_CLASS_IDX ON {} (CLASS, NEXT);".format(table_name, table_name))
+    cursor.execute("CREATE INDEX {}_TRI_CLASS_IDX ON {} (CLASS, NEXT, NNEXT);".format(table_name, table_name))
     conn.commit()
     cursor.close()
     conn.close()
@@ -119,6 +120,6 @@ if __name__ == '__main__':
         cnn = load_model(cnn, model_path)
         images = [f.name for f in os.scandir(img_dir) if f.name.endswith(".jpg")]
         cnn.eval()
-        get_table_row(images, img_dir, res_dir, out_dir)
+        get_table_row(cnn, images, img_dir, res_dir, out_dir)
         create_table(db_path, "DETECTION", out_dir)
         create_table(db_path, "GT", gt_dir)
