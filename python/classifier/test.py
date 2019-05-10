@@ -13,6 +13,10 @@ from utils.util import load_model, get_class
 from torchvision.transforms import transforms
 
 
+# caculate IOU of the first keyword between detection and gt
+def mAP():
+    pass
+
 def search(cursor, keywords_idx):
     char_num = len(keywords_idx)
     if char_num == 1:

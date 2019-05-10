@@ -1,5 +1,6 @@
 import os
 import cv2
+import shutil
 import numpy as np
 from PIL import ImageDraw, Image
 from utils.util import mkdir
@@ -61,9 +62,11 @@ img_dir = r"c:\Users\Deng\Desktop\difangzhi\out\\"
 images = [img_dir  + f.name for f in os.scandir(img_dir) if f.name.endswith("jpg")]
 images.sort(key=lambda item: (len(item), item))
 mkdir("bw_out")
+mkdir("color_out")
 for i, image_path in enumerate(images):
     text_path = img_dir + image_path.split('\\')[-1][: -3] + 'txt'
-    img = cv2.imread(image_path)
+    color_img = cv2.imread(image_path)
+    img = np.copy(color_img)
     img = binary_fillhole(img)
     h, w = img.shape
     row_sum = np.sum(img, 1)
@@ -89,4 +92,7 @@ for i, image_path in enumerate(images):
     with open('./bw_out/{}.txt'.format(i), 'w', encoding='utf-8') as f:
         f.writelines(new_lines)
     img = img[row_start: row_end, col_start: col_end]
+    color_img = color_img[row_start: row_end, col_start: col_end]
     cv2.imwrite("./bw_out/{}.jpg".format(i), img)
+    cv2.imwrite("./color_out/{}.jpg".format(i), color_img)
+    shutil.copyfile('./bw_out/{}.txt'.format(i), './color_out/{}.txt'.format(i))

@@ -42,6 +42,8 @@ def train():
     parser.add_argument('--eps', type=float, default=1e-8, help='The epsilon for Adam. Default: 1e-8')
     parser.add_argument('--display', type=int, default=200, help='The number of iterations after which to display \
                         the loss values. Default: 500')
+    parser.add_argument('--pretrained', action='store_true', help='Whether to use pretrain or not')
+    parser.add_argument('--model_path', help='path to pretrain model')
     parser.add_argument('--max_epoch', '-epoch', type=int, default=100, help='The number of max epoch while training. \
                         Default: 100')
     parser.add_argument('--batch_size', '-bs', type=int, default=64, help='The batch size of the data. Default: 128')
@@ -68,33 +70,30 @@ def train():
                                                  transforms.Compose([transforms.Resize((224, 224)),
                                                                      transforms.ToTensor()]))
     test_set = torchvision.datasets.ImageFolder('/data2/dengbowen/test',
-                                                 transforms.Compose([transforms.Resize((224, 224)),
-                                                                     transforms.ToTensor()]))
+                                                transforms.Compose([transforms.Resize((224, 224)),
+                                                                    transforms.ToTensor()]))
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=4)
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=4)
     arch = '50'
     nl_type = 'cgnl'
     nl_nums = 0
     pool_size = 7
-    cnn = resnet.model_hub(arch,
-                             pretrained=False,
-                             nl_type=nl_type,
-                             nl_nums=nl_nums,
-                             pool_size=pool_size)
+    if args.pretrained:
+        cnn = resnet.model_hub(arch, char_class, args.model_path, pretrained=True, nl_type=nl_type, nl_nums=nl_nums,
+                               pool_size=pool_size)
+    else:
+        cnn = resnet.model_hub(arch, char_class, pretrained=False, nl_type=nl_type, nl_nums=nl_nums,
+                               pool_size=pool_size)
+        torch.nn.init.kaiming_normal_(cnn._modules['fc'].weight,
+                                      mode='fan_out', nonlinearity='relu')
 
-    # change the fc layer
-    cnn._modules['fc'] = torch.nn.Linear(in_features=2048,
-                                           out_features=char_class)
-
-    torch.nn.init.kaiming_normal_(cnn._modules['fc'].weight,
-                                  mode='fan_out', nonlinearity='relu')
     print(cnn)
     # optimizer
     optimizer = torch.optim.SGD(
-            cnn.parameters(),
-            args.learning_rate,
-            momentum=0.9,
-            weight_decay=1e-4)
+        cnn.parameters(),
+        args.learning_rate,
+        momentum=0.9,
+        weight_decay=1e-4)
     writer = SummaryWriter(log_dir='runs/' + datetime.datetime.now().strftime("%m-%d-%H-%M") +
                                    optimizer.__class__.__name__ + str(args.learning_rate))
 
@@ -120,7 +119,7 @@ def train():
 
     # initialize the iteration counter and the threshold for save a model
     model_name = 'ResNet'
-    start_time = datetime.datetime.now().strftime("%m-%d-%H-%M") 
+    start_time = datetime.datetime.now().strftime("%m-%d-%H-%M")
     iteration = 0
     threshold = 85
     for epoch in range(args.max_epoch):
@@ -140,7 +139,8 @@ def train():
                 writer.add_embedding(out, label.data, image.data, iteration)
                 if top1 >= threshold and top1 > best_accuracy:
                     state = {'state_dict': cnn.state_dict()}
-                    torch.save(state, os.path.join('./output', '_{:s}_{:.2f}.pth.tar'.format(model_name + start_time, top1)))
+                    torch.save(state,
+                               os.path.join('./output', '_{:s}_{:.2f}.pth.tar'.format(model_name + start_time, top1)))
                     best_accuracy = top1
             image = image.to(device)
             label = label.to(device)

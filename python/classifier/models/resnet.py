@@ -18,22 +18,30 @@ from collections import OrderedDict
 __all__ = ['ResNet', 'resnet50', 'resnet101', 'resnet152']
 
 
-def model_hub(arch, pretrained=True, nl_type=None, nl_nums=None,
+def model_hub(arch, char_class, model_path='pretrained/resnet50-19c8e357.pth', pretrained=True, nl_type=None,
+              nl_nums=None,
               pool_size=7):
     """Model hub.
     """
+
     if arch == '50':
-        return resnet50(pretrained=pretrained,
+        return resnet50(char_class,
+                        model_path,
+                        pretrained=pretrained,
                         nl_type=nl_type,
                         nl_nums=nl_nums,
                         pool_size=pool_size)
     elif arch == '101':
-        return resnet101(pretrained=pretrained,
+        return resnet101(char_class,
+                         model_path,
+                         pretrained=pretrained,
                          nl_type=nl_type,
                          nl_nums=nl_nums,
                          pool_size=pool_size)
     elif arch == '152':
-        return resnet152(pretrained=pretrained,
+        return resnet152(char_class,
+                         model_path,
+                         pretrained=pretrained,
                          nl_type=nl_type,
                          nl_nums=nl_nums,
                          pool_size=pool_size)
@@ -123,6 +131,7 @@ class Bottleneck(nn.Module):
 class SpatialCGNL(nn.Module):
     """Spatial CGNL block with dot production kernel for image classfication.
     """
+
     def __init__(self, inplanes, planes, use_scale=False, groups=None):
         self.use_scale = use_scale
         self.groups = groups
@@ -136,7 +145,7 @@ class SpatialCGNL(nn.Module):
         self.g = nn.Conv2d(inplanes, planes, kernel_size=1, stride=1, bias=False)
         # conv z
         self.z = nn.Conv2d(planes, inplanes, kernel_size=1, stride=1,
-                                                  groups=self.groups, bias=False)
+                           groups=self.groups, bias=False)
         self.gn = nn.GroupNorm(num_groups=self.groups, num_channels=inplanes)
 
         if self.use_scale:
@@ -164,7 +173,7 @@ class SpatialCGNL(nn.Module):
         att = torch.bmm(p, g)
 
         if self.use_scale:
-            att = att.div((c*h*w)**0.5)
+            att = att.div((c * h * w) ** 0.5)
 
         x = torch.bmm(att, t)
         x = x.view(b, c, h, w)
@@ -178,7 +187,7 @@ class SpatialCGNL(nn.Module):
         p = self.p(x)
         g = self.g(x)
 
-        b,c,h,w = t.size()
+        b, c, h, w = t.size()
 
         if self.groups and self.groups > 1:
             _c = int(c / self.groups)
@@ -207,6 +216,7 @@ class SpatialCGNL(nn.Module):
 class SpatialCGNLx(nn.Module):
     """Spatial CGNL block with Gaussian RBF kernel for image classification.
     """
+
     def __init__(self, inplanes, planes, use_scale=False, groups=None, order=2):
         self.use_scale = use_scale
         self.groups = groups
@@ -221,7 +231,7 @@ class SpatialCGNLx(nn.Module):
         self.g = nn.Conv2d(inplanes, planes, kernel_size=1, stride=1, bias=False)
         # conv z
         self.z = nn.Conv2d(planes, inplanes, kernel_size=1, stride=1,
-                                                  groups=self.groups, bias=False)
+                           groups=self.groups, bias=False)
         self.gn = nn.GroupNorm(num_groups=self.groups, num_channels=inplanes)
 
         if self.use_scale:
@@ -268,18 +278,18 @@ class SpatialCGNLx(nn.Module):
 
         t_taylor = []
         p_taylor = []
-        for order in range(self.order+1):
+        for order in range(self.order + 1):
             # alpha
             alpha = torch.mul(
-                    torch.div(
+                torch.div(
                     torch.pow(
                         (2 * gamma),
                         order),
-                        math.factorial(order)),
-                        beta)
+                    math.factorial(order)),
+                beta)
 
             alpha = torch.sqrt(
-                        alpha.cuda())
+                alpha.cuda())
 
             _t = t.pow(order).mul(alpha)
             _p = p.pow(order).mul(alpha)
@@ -293,9 +303,9 @@ class SpatialCGNLx(nn.Module):
         att = torch.bmm(p_taylor, g)
 
         if self.use_scale:
-            att = att.div((c*h*w)**0.5)
+            att = att.div((c * h * w) ** 0.5)
 
-        att = att.view(b, 1, int(self.order+1))
+        att = att.view(b, 1, int(self.order + 1))
         x = torch.bmm(att, t_taylor)
         x = x.view(b, c, h, w)
 
@@ -338,6 +348,7 @@ class SpatialNL(nn.Module):
     """Spatial NL block for image classification.
        [https://github.com/facebookresearch/video-nonlocal-net].
     """
+
     def __init__(self, inplanes, planes, use_scale=False):
         self.use_scale = use_scale
 
@@ -368,7 +379,7 @@ class SpatialNL(nn.Module):
         att = torch.bmm(t, p)
 
         if self.use_scale:
-            att = att.div(c**0.5)
+            att = att.div(c ** 0.5)
 
         att = self.softmax(att)
         x = torch.bmm(att, g)
@@ -439,23 +450,23 @@ class ResNet(nn.Module):
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
             if (i == 5 and blocks == 6) or \
-               (i == 22 and blocks == 23) or \
-               (i == 35 and blocks == 36):
+                    (i == 22 and blocks == 23) or \
+                    (i == 35 and blocks == 36):
                 if nl_type == 'nl':
                     layers.append(SpatialNL(
                         self.inplanes,
-                        int(self.inplanes/2),
+                        int(self.inplanes / 2),
                         use_scale=True))
                 elif nl_type == 'cgnl':
                     layers.append(SpatialCGNL(
                         self.inplanes,
-                        int(self.inplanes/2),
+                        int(self.inplanes / 2),
                         use_scale=False,
                         groups=8))
                 elif nl_type == 'cgnlx':
                     layers.append(SpatialCGNLx(
                         self.inplanes,
-                        int(self.inplanes/2),
+                        int(self.inplanes / 2),
                         use_scale=False,
                         groups=8,
                         order=3))
@@ -493,47 +504,72 @@ def load_partial_weight(model, pretrained, nl_nums, nl_layer_id):
     _pretrained_dict = OrderedDict()
     for k, v in _pretrained.items():
         ks = k.split('.')
+        if ks[0] == 'module':
+            # remove wrapper
+            ks = ks[1:]
+            k = k[7:]
         layer_name = '.'.join(ks[0:2])
         if nl_nums == 1 and \
                 layer_name == 'layer3.{}'.format(nl_layer_id):
             ks[1] = str(int(ks[1]) + 1)
             k = '.'.join(ks)
         _pretrained_dict[k] = v
+    if _model_dict['fc.weight'].shape != _pretrained_dict['fc.weight'].shape:
+        # different fc shape
+        del _pretrained_dict['fc.weight']
+        del _pretrained_dict['fc.bias']
+        torch.nn.init.kaiming_normal_(_model_dict['fc.weight'],
+                                      mode='fan_out', nonlinearity='relu')
     _model_dict.update(_pretrained_dict)
     return _model_dict
 
 
-def resnet50(pretrained=False, nl_type=None, nl_nums=None, **kwargs):
+def resnet50(char_class, model_path='pretrained/resnet50-19c8e357.pth', pretrained=False, nl_type=None, nl_nums=None,
+             **kwargs):
     """Constructs a ResNet-50 model.
     """
     model = ResNet(Bottleneck, [3, 4, 6, 3],
                    nl_type=nl_type, nl_nums=nl_nums, **kwargs)
+    # change the fc layer
+    model._modules['fc'] = torch.nn.Linear(in_features=2048,
+                                           out_features=char_class)
     if pretrained:
-        _pretrained = torch.load('pretrained/resnet50-19c8e357.pth')
+        _pretrained = torch.load(model_path)['state_dict']
+
         _model_dict = load_partial_weight(model, _pretrained, nl_nums, 5)
         model.load_state_dict(_model_dict)
+
     return model
 
 
-def resnet101(pretrained=False, nl_type=None, nl_nums=None, **kwargs):
+def resnet101(char_class, model_path='pretrained/resnet50-19c8e357.pth', pretrained=False, nl_type=None, nl_nums=None,
+              **kwargs):
     """Constructs a ResNet-101 model.
     """
     model = ResNet(Bottleneck, [3, 4, 23, 3],
                    nl_type=nl_type, nl_nums=nl_nums, **kwargs)
+    # change the fc layer
+    model._modules['fc'] = torch.nn.Linear(in_features=2048,
+                                           out_features=char_class)
     if pretrained:
-        _pretrained = torch.load('pretrained/resnet101-5d3b4d8f.pth')
+        _pretrained = torch.load(model_path)['state_dict']
         _model_dict = load_partial_weight(model, _pretrained, nl_nums, 22)
         model.load_state_dict(_model_dict)
+
     return model
 
 
-def resnet152(pretrained=False, nl_type=None, nl_nums=None, **kwargs):
+def resnet152(char_class, model_path='pretrained/resnet50-19c8e357.pth', pretrained=False, nl_type=None, nl_nums=None,
+              **kwargs):
     """Constructs a ResNet-152 model.
     """
     model = ResNet(Bottleneck, [3, 8, 36, 3],
                    nl_type=nl_type, nl_nums=nl_nums, **kwargs)
+    # change the fc layer
+    model._modules['fc'] = torch.nn.Linear(in_features=2048,
+                                           out_features=char_class)
     if pretrained:
-        _pretrained = torch.load('pretrained/resnet152-b121ed2d.pth')
+        _pretrained = torch.load(model_path)['state_dict']
         _model_dict = load_partial_weight(model, _pretrained, nl_nums, 35)
         model.load_state_dict(_model_dict)
     return model
