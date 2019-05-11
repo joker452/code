@@ -1,4 +1,4 @@
-# Haskell  
+﻿# Haskell  
 结构相等  
 Stu id1 n1 s1与Stu id2 n2 s2各个域对应相等  
 data Stu = Stu String \_ \_  
@@ -245,4 +245,84 @@ lens %~ a' x = set lens a' x
 (.~) = set
 infixr 4 .~
 ```  
-生成自定义数据类型的透镜组的工作不需要手动完成。Haskell中有模板编程的功能，只要提供了使用记录语法定义好的数据类型，一句话就可以让编译器自动生成记录中每一项的透镜组。  
+生成自定义数据类型的透镜组的工作不需要手动完成。Haskell中有模板编程的功能，只要提供了使用记录语法定义好的数据类型，一句话就可以让编译器自动生成记录中每一项的透镜组。    
+# Applicative
+Applicative解决的是如何将多个参数的函数应用到多个包裹在函子的参数
+<\*>代替的是原来的空白  
+Reader Applicative需要一个类似于全局变量的值，在后续应用时会把参数分配给链条上的每一个参数  
+moconcat (map (All . even) [5, 8, 10])  
+Monoid可以让很难成为Applicative的成为Applicative   
+函子->应用函子->单子，作为函子的子类型类，它概括了某些函子额外的特性。  
+计算中途遇到一个没有包裹在列表中的参数，怎么办？  
+需要一个让一个值升格为包裹在函子中的值的操作，使得<\*>可以连接它们，但同时又不能影响到<\*>确定下来的计算的语义。此操作称作添加最小上下文。  
+Reader函子的函子应用算符一定会返回a->...类型的函数，其中a类型的参数从始至终贯穿整个运算，传给了每个被连接的a->...类型的函数，这些函数的返回值被当成参数传递给初始创建应用函子时的计算，有点类似于全局绑定。  
+Reader应用函子常常用在配置模块化的问题上。程序运行需要的配置数据就是函子中a的类型，其他需要读取配置的函数类型一定都是a->...。如果要组合若干个读取配置的函数，可以通过<\*>把它们连接起来。  
+... <$> ... <\*> ... <\*>的写法叫做自然升格。其中第一个表达式是一个参数数量为n的函数，后面用<$>连接第一个参数，得到升格之后的后续运算。升格的过程在第一个<$>中被自然完成了。  
+有时希望在计算过程中直接填充函子类型，Data.Functor中，提供了在自然升格写法下需要的两个中缀函数：  
+```Haskell
+(<$) :: Functor f => a -> f b -> f a  
+(<$) = fmap . const
+infixl 4 <$
+
+($>) :: Functor f => f a -> b -> f b
+($>) = flip (<$)
+infixl 4 $>
+```  
+有时希望直接使用某个包裹在函子的值填充到生成的函子中，Control.Applicative中，定义了如下两个中缀函数：  
+```Haskell
+(<*) :: Applicative f => f a -> f b -> f a  
+(<*) = flip (*>)
+infixl 4 <*
+
+(*>) :: Applicative f => f a -> f b -> f b
+a1 *> a2 = (id <$ a1) <*> a2
+infixl 4 *>
+```  
+<\*, \*>用来舍弃右侧或者左侧未完成的包裹在函子中的计算或值。<$, $>用来包裹左侧或者右侧的值。  
+<\*做的不仅仅是丢弃右侧的参数，而是根据左右两侧函子携带的上下文信息，把左侧函子包裹的值重新打包，这个过程中，右侧的参数中函子携带的信息将会影响到最终结果。  
+显式升格的写法  
+```Haskell
+liftA2 :: Applicative f => (a -> b -> c) -> f a -> f b -> f c
+liftA2 f x y = fmap f x <*> y
+
+liftA :: Applicative f => (a -> b -> c) -> f a -> f b -> f c
+
+liftA3 :: Applicative f => (a -> b -> c -> d) -> f a -> f b -> f c -> f d
+```
+liftA就是fmap，参数数量增加的情况下，显式升格并不会带来可读性上的增加，反而导致难以书写。liftAx系列函数，更多用在定义其他控制函数。  
+单位半群（monoid），又称作幺半群，是现代数学一大分支群论里的一个概念。  
+半群（semigroup）是关于满足结合律的二元操作的抽象，monoid则是进一步关于单位元和满足结合律的二元操作的抽象。  
+```Haskell
+class Semigroup a where
+(<>) :: a -> a -> a
+
+class Monoid a where
+	mempty :: a                      -- 单位半群的单位元
+   mappend :: a -> a -> a               -- 二元运算
+   mconcat :: [a] -> a
+(<>) :: Monoid a => a -> a -> a
+(<>) = mappend                      -- 定义在Data.Monoid
+infix r 6 <>
+
+instance Monoid b => Monoid (a -> b) where	  -- 返回值是单位半群类型
+	mempty _ = mempty
+   mappend f g x = f x `mappend` g x
+
+newtype Endo = Endo { appEndo :: a -> a }    -- 返回值类型与参数类型一致
+instance Monoid (Endo a ) where
+	mempty = Endo id
+   (Endo f1) `mappend` (Endo f2) = Endo (f1. f2)
+```  
+Ordering类型的单位半群实例的含义是指从高位到低位的顺序组合。  
+在范畴学里，把从一个集合（如全部字符）通过创建子集（如字符串，任意一个字符串可以看做全部字符的子集）构造出来的单位半群叫做自由单位半群（free monoid）。自由是指不要求底层的集合类型有任何特性。  
+逆，出自范畴学，描述“互为相反”的两个范畴。相反指当用范畴B和范畴A比较时，所有的箭头（态射）的方向都是调转过来的，包括通过组合规则得到的箭头也都是调转过来的。  
+互逆的单位半群虽然不一定相同，但是它一定还是一个单位半群。  
+```Haskell
+newtype Dual a = Dual { getDual :: a}
+instance Monoid a => Monoid (Dual a) where
+	mempty = Dual mempty
+   Dual x `mappend` Dual y = Dual (y `mappend` x)   
+```
+很多单位半群不仅满足单位元和结合律，还满足交换律，例如Any, All, Sum a等。但有些不满足，如Endo，此时参数的顺序会影响结果。  
+Const a无法提供“最小上下文”，有两个Const a，无法处理，但如果a是单位半群时，可以用mempty和mappend来解决。  
+函子约束往往约束类别是容器类型（\*->\*），单位半群更多地作用在实体类型（\*）上。  
