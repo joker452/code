@@ -1,5 +1,5 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
 
 """
 A criterion for bounding box regression losses.
@@ -82,7 +82,7 @@ class BoxRegressionCriterion(nn.Module):
         mask = torch.gt(torch.abs(target_transforms).max(dim=1, keepdim=True)[0], 10)
         mask = torch.squeeze(mask)
         mask_sum = mask.sum()# / 4
-        if mask_sum.data.item() > 0:
+        if mask_sum.detach().item() > 0:
             mask_nonzero = torch.squeeze(mask.nonzero())
             transforms = transforms.clone()
             transforms.index_fill_(0, mask_nonzero, 0)

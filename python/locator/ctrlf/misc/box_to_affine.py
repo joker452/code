@@ -79,15 +79,8 @@ class BoxToAffine(torch.nn.Module):
         th11 = torch.div(h, self.H)
         th12 = torch.zeros_like(xc)
         th21 = torch.zeros_like(xc)
-#        output = torch.autograd.Variable(torch.zeros(B, 2, 3).type_as(input.data), requires_grad=True)
-#        output[:, 0, 0] = th11
-#        output[:, 0, 2] = th13
-#        output[:, 1, 1] = th22
-#        output[:, 1, 2] = th23
-#        r1 = torch.stack((th11, th12, th13), dim=1).view(B, 1, 3)
-#        r2 = torch.stack((th21, th22, th23), dim=1).view(B, 1, 3)
-        
-        #W, H are flipped compared to torch version
+
+
         # (B, B, B)-> (B,3)-> (B, 1, 3)
         r1 = torch.stack((th22, th12, th23), dim=1).view(B, 1, 3)
         r2 = torch.stack((th21, th11, th13), dim=1).view(B, 1, 3)

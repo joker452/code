@@ -1,15 +1,12 @@
 import torch
-import logging
-import torch.nn as nn
 import math
-
-from misc.localization_layer import LocalizationLayer
-from misc.box_regression_criterion import BoxRegressionCriterion
-from misc.apply_box_transform import ApplyBoxTransform
-
-import misc.box_utils as box_utils
+import torch.nn as nn
 import misc.utils as utils
+import misc.box_utils as box_utils
+from misc.localization_layer import LocalizationLayer
 from misc.resnet_blocks import BasicBlock, Bottleneck
+from misc.apply_box_transform import ApplyBoxTransform
+from misc.box_regression_criterion import BoxRegressionCriterion
 
 
 class CtrlFNet(nn.Module):
@@ -22,23 +19,7 @@ class CtrlFNet(nn.Module):
         utils.ensureopt(opt, 'box_reg_decay')
 
         self.opt = opt
-
-        # output from bilinear interpolation, ensures that the output from layer4 is 2 x 5
-        # TODO: infer one from the other, and also investigate different sizes?
-        # h x w
-        output_size = (8, 20)
-        # default 34
-        if opt.num_layers == 34:
-            input_dim = 128
-        elif opt.num_layers == 50:
-            input_dim = 512
-
-        self.opt.output_size = output_size
-        self.opt.input_dim = input_dim
-        self.opt.cnn_dim = 512
-        # fix: remove if rt embedding
-        self.opt.contrastive_loss = 0
-
+        self.logger = logger
         x0, y0 = 0.0, 0.0
         sx, sy = 1.0, 1.0
         n = 4
@@ -49,19 +30,23 @@ class CtrlFNet(nn.Module):
             sx = 2 * sx
             sy = 2 * sy
 
-        # logger.debug("x0 y0 sx sy in CtrlFNet init {},{},{},{}".format(x0, y0, sx, sy))
+        # output from bilinear interpolation, ensures that the output from layer4 is 2 x 5
+        # h x w
+        output_size = (8, 20)
+        # these parameters are also used in localization layer
+        self.opt.output_size = output_size
+        self.opt.input_dim = 128
+        self.opt.cnn_dim = 512
         self.opt.field_centers = (x0, y0, sx, sy)
 
         # First part of resnet
         # BasicBlock a nn.Module, [3, 4, 6, 3]
         # note here basic block not initialization, only return class
-        block, layers = self.get_block_and_layers(opt.num_layers)
+        block, layers = self.get_block_and_layers(34)
         self.inplanes = 64
-        # 27->14
         self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
-        # 27->14
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         # 3 basic blocks
@@ -69,33 +54,24 @@ class CtrlFNet(nn.Module):
         # 4 basic blocks
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
 
-        self.localization_layer = LocalizationLayer(self.opt)
-        # logger.debug("localization layer")
-        # print(self.localization_layer)
+        self.localization_layer = LocalizationLayer(self.opt, logger)
         # Rest of resnet
         # 6 basic blocks
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        # logger.debug("layer3 of ResNet")
-        # print(self.layer3)
-        # logger.debug("layer4 of ResNet")
-        # print(self.layer4)
         self.bn2 = nn.BatchNorm2d(512 * block.expansion)
         self.avgpool = nn.AvgPool2d((2, 5))
         self.fc = nn.Linear(512 * block.expansion, 512 * block.expansion)
 
         # Initialize resnet weights
-        # nothing special?
         self.init_resnet_weights()
 
         # Initialize localization_layer weights
-        # nothing special?
         if opt.init_weights:
             self.localization_layer.init_weights()
 
         # Final box scoring layer
         self.box_scoring_branch = nn.Linear(512 * block.expansion, 2)
-        #            self.box_scoring_branch = nn.Linear(512 * block.expansion, 1)
 
         # Final box regression layer
         self.apply_box_transform = ApplyBoxTransform()
@@ -106,16 +82,9 @@ class CtrlFNet(nn.Module):
                 self.box_scoring_branch.bias.zero_()
                 self.box_reg_branch.weight.zero_()
                 self.box_reg_branch.bias.zero_()
-        # logger.debug("final box reg layer")
-        # print(self.box_reg_branch)
 
-        # Losses
-        #        if self.opt.end_ce:
         self.scoring_loss = nn.CrossEntropyLoss()
-        #        else:
-        #            self.scoring_loss = LogisticLoss()
         self.box_reg_loss = BoxRegressionCriterion(self.opt.end_box_reg_weight)
-        # print(self.box_reg_loss)
 
     def load_weights(self, weight_file):
         if weight_file:
@@ -159,13 +128,6 @@ class CtrlFNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-        """ 
-        Input: Dictoinary with the following keys:
-        rpn_nms_thresh: NMS threshold for region proposals in the RPN; default is 0.7.
-        final_nms_thresh: NMS threshold for final predictions; default is 0.3.
-        num_proposals: Number of proposals to use; default is 1000
-        """
-
     def setTestArgs(self, kwargs):
         self.localization_layer.setTestArgs({
             'nms_thresh': utils.getopt(kwargs, 'rpn_nms_thresh', 0.7),
@@ -179,7 +141,6 @@ class CtrlFNet(nn.Module):
         a = 0
         for p in self.parameters():
             a += p.data.nelement()
-
         return a
 
     def _eval_helper(self, image, boxes, final_adjust_boxes):
@@ -190,7 +151,7 @@ class CtrlFNet(nn.Module):
         scores, tboxes = [], []
         for v in boxes.split(self.opt.test_batch_size):
             with torch.no_grad():
-                roi_feats = self.localization_layer.eval_boxes((image, v.cuda()))
+                roi_feats = self.localization_layer.eval_boxes((image, v))
                 roi_feats = self.layer3(roi_feats)
                 roi_feats = self.layer4(roi_feats)
                 roi_feats = self.bn2(roi_feats)
@@ -214,19 +175,16 @@ class CtrlFNet(nn.Module):
 
         return out
 
-    # Clamp parallel arrays only to valid boxes (not oob of the image)
-    def clamp_data(self, data, valid):
-        # data should be kHW x D
-        # valid is byte of shape kHW
-        assert data.dim() == 2
-        mask = valid.view(-1, 1).expand_as(data)
-        return data[mask].view(-1, data.size(1))
-
-    def evaluate(self, input, gpu, numpy=True, cpu=True):
-        image, gt_boxes, proposals = input
-        if gpu:
-            image = image.cuda()
-
+    def evaluate(self, input, args, cpu=True):
+        image, gt_boxes = input[0], input[1]
+        if not torch.cuda.is_available():
+            self.logger.warning('Could not find CUDA environment, using CPU mode')
+            args.gpu = False
+        device = torch.device("cuda:0" if args.gpu else "cpu")
+        image = image.to(device)
+        if args.use_external_proposals:
+            proposals = input[2]
+            proposals = proposals.to(device)
         B, C, H, W = image.shape
         self.setImageSize(H, W)
         with torch.no_grad():
@@ -238,7 +196,7 @@ class CtrlFNet(nn.Module):
             image = self.layer2(image)
             # do nms for roi_boxes
             roi_boxes = self.localization_layer(image)
-            roi_scores, roi_boxes = self._eval_helper(image, roi_boxes.data, True)
+            roi_scores, roi_boxes = self._eval_helper(image, roi_boxes, True)
             proposal_scores = self._eval_helper(image, proposals, False)[0]
 
             # Convert to x1y1x2y2
@@ -246,19 +204,23 @@ class CtrlFNet(nn.Module):
 
             if cpu:
                 roi_scores = roi_scores.cpu()
-                proposal_scores = proposal_scores.cpu()
                 roi_boxes = roi_boxes.cpu()
+                if args.use_external_proposals:
+                    proposal_scores = proposal_scores.cpu()
 
-            if numpy:
+            if args.numpy:
                 # Convert to numpy array
                 roi_scores = roi_scores.cpu().numpy()
-                proposal_scores = proposal_scores.cpu().numpy()
                 roi_boxes = roi_boxes.cpu().numpy()
+                if args.use_external_proposals:
+                    proposal_scores = proposal_scores.cpu().numpy()
 
             roi_scores = roi_scores[:, 1]
-            proposal_scores = proposal_scores[:, 1]
 
-            out = (roi_scores, proposal_scores, roi_boxes)
+            out = (roi_scores, roi_boxes)
+            if args.use_external_proposals:
+                proposal_scores = proposal_scores[:, 1]
+                out += (proposal_scores,)
         return out
 
     def forward(self, input):
@@ -277,8 +239,10 @@ class CtrlFNet(nn.Module):
         if self.opt.dtp_train:
             ll_in += (input[2],)
 
-        roi_feats, roi_boxes, pos_target_boxes, mid_loss, rpn_pos = \
-            self.localization_layer(ll_in)
+        if self.opt.dtp_train:
+            roi_feats, roi_boxes, pos_target_boxes, mid_loss, rpn_pos = self.localization_layer(ll_in)
+        else:
+            roi_feats, roi_boxes, pos_target_boxes, mid_loss = self.localization_layer(ll_in)
         roi_feats = self.layer3(roi_feats)
 
         roi_feats = self.layer4(roi_feats)
@@ -307,50 +271,8 @@ class CtrlFNet(nn.Module):
             # do transformation again for positive boxes
             boxes = self.apply_box_transform((pos_roi_boxes, box_trans))
             out = (scores, pos_roi_boxes, box_trans, boxes, pos_target_boxes,
-               mid_loss)
+                   mid_loss)
         return self.post_processing(out)
-
-    # def test_dtp(self, input):
-    #     with torch.no_grad():
-    #         image, _, dtp_boxes = input[0], input[1]
-    #         image = self.conv1(image)
-    #         image = self.bn1(image)
-    #         image = self.relu(image)
-    #         image = self.maxpool(image)
-    #         image = self.layer1(image)
-    #         image = self.layer2(image)
-    #         # 1, 128, 215, 133
-    #         ll_in = (image, dtp_boxes)
-    #
-    #         roi_feats, roi_boxes = self.localization_layer(ll_in)
-    #         roi_feats = self.layer3(roi_feats)
-    #
-    #         roi_feats = self.layer4(roi_feats)
-    #         roi_feats = self.bn2(roi_feats)
-    #         roi_feats = self.relu(roi_feats)
-    #         roi_feats = self.avgpool(roi_feats)
-    #         roi_feats = roi_feats.view(roi_feats.size(0), -1)
-    #         roi_codes = self.fc(roi_feats)
-    #
-    #         # scores are based on roi_codes
-    #         scores = self.box_scoring_branch(roi_codes)
-    #         #pos_roi_codes = roi_codes[:num_pos]
-    #         #pos_roi_boxes = roi_boxes[:num_pos]
-    #
-    #         # Don't do box regression on roi boxes since we don't try to adjust dtp boxes
-    #         if self.opt.dtp_train:
-    #             reg_roi_codes = pos_roi_codes[:num_pos // 2]
-    #             reg_roi_boxes = pos_roi_boxes[:num_pos // 2]
-    #             box_trans = self.box_reg_branch(reg_roi_codes)
-    #             boxes = self.apply_box_transform((reg_roi_boxes, box_trans))
-    #
-    #         else:
-    #             # reg are based on pos_roi_codes
-    #             box_trans = self.box_reg_branch(pos_roi_codes)
-    #             # do transformation again for positive boxes
-    #             boxes = self.apply_box_transform((pos_roi_boxes, box_trans))
-    #
-    #         return (scores, pos_roi_boxes, box_trans, boxes)
 
     def post_processing(self, out):
         wordness_scores = out[0]
@@ -383,18 +305,16 @@ class CtrlFNet(nn.Module):
 
         total_loss = mid_loss + end_objectness_loss + end_box_reg_loss
         total_loss.backward()
-        # print(total_loss)
-        ll_losses = self.localization_layer.stats.losses
+        ll_losses = self.localization_layer.stats
         losses = {
             'mid-obj': ll_losses.obj_loss_pos.cpu() + ll_losses.obj_loss_neg.cpu(),
             'box-decay': ll_losses.box_decay_loss.cpu(),
             'mid-reg': ll_losses.box_reg_loss.cpu(),
-            'end-obj': end_objectness_loss.data.cpu(),
-            'end-reg': end_box_reg_loss.data.cpu(),
-            'total_loss': total_loss.data.cpu(),
-        }
+            'end-obj': end_objectness_loss.detach().cpu(),
+            'end-reg': end_box_reg_loss.detach().cpu(),
+            'total_loss': total_loss.detach().cpu()}
 
         for k, v in losses.items():
             losses[k] = v.item()
-        
+
         return losses, predict_boxes

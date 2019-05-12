@@ -1,11 +1,11 @@
-#!/usr/bin/env python2
-# -*- coding: utf-8 -*-
 """
 Created on Fri Oct 13 13:00:04 2017
 
 @author: tomas
 """
 import torch
+
+
 class ApplyBoxTransform(torch.nn.Module):
     """
     Apply adjustments to bounding boxes for bounding box regression, with

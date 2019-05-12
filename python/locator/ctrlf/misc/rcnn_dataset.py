@@ -14,7 +14,17 @@ from torchvision import transforms
 from threading import Thread, Lock
 from queue import Queue
 
-from PIL import Image, ImageDraw
+def mkdir(dir_name):
+    if not os.path.isdir(dir_name):
+        try:
+            os.makedirs(dir_name)
+        except OSError:
+            print('Can not make directory for {}'.format(dir_name))
+            raise OSError
+        else:
+            print("Make directory for {}".format(dir_name))
+    else:
+        print("{} already exists".format(dir_name))
 
 def create_db(images, db_file, max_shape):
     print("begin create h5 data file")
@@ -45,24 +55,21 @@ def create_db(images, db_file, max_shape):
     f.close()
 
 
-
-
 class RcnnDataset(Dataset):
 
-    def __init__(self, opt, use_dtp, is_train, logger, data_dir, json_path, db_file):
+    def __init__(self, opt, use_dtp, logger, data_dir, json_name, db_file):
         super(Dataset, self).__init__()
-        # TODO: change this
         self.use_dtp = use_dtp
         self.logger = logger
+        self.parent_dir = os.path.abspath(os.path.join(data_dir, os.pardir))
         # all image data, memory for speed
         self.target_image_size = float(opt.image_size)
         # note this also set self.images
-        self.data = self.load_data(data_dir, json_path, db_file)
-        db = h5py.File(db_file, 'r')
+        self.data = self.load_data(data_dir, json_name, db_file)
+        db = h5py.File(os.path.join(self.parent_dir, 'cache', db_file), 'r')
         images = db.get('images').value
         self.images = []
         self.image_mean = db.get('image_mean').value
-        # maybe get h, w from data?
         for i, ims in enumerate(images):
             h, w = self.data[i]['h'], self.data[i]['w']
             img = ims[0, :h, :w]
@@ -72,18 +79,20 @@ class RcnnDataset(Dataset):
 
             self.images.append(img)
         self.image_number = len(self.images)
-        self.print_info(True, "total images:{}".format(self.image_number))
-        self.print_info(True, "image_mean:{}".format(self.image_mean))
+        self.print_info(False, "total images:{}".format(self.image_number))
+        self.print_info(False, "image_mean:{}".format(self.image_mean))
         # this change region_proposal from list of list to ndarray
         self.filter_region_proposals()
-        # after these box change to ndarray, and xc, yc, w, h
+        # after these, boxes change to ndarray, and xc, yc, w, h
         self.encode_boxes('region_proposals')
         self.encode_boxes('gt_boxes')
         self.transforms = transforms.Compose([transforms.ToTensor(),
-                                             transforms.Normalize((self.image_mean / 255, ), (1, ))])
+                                              transforms.Normalize((self.image_mean / 255,), (1,))])
 
-    def load_data(self, data_dir, json_path, db_file):
-        if not os.path.isfile(json_path):
+    def load_data(self, data_dir, json_name, db_file):
+
+        if not os.path.isfile(os.path.join(self.parent_dir, 'cache', json_name)):
+            mkdir(os.path.join(self.parent_dir, 'cache'))
             self.print_info(False, "json file doesn't exist, load data from scratch")
             image_paths = [data_dir + entry.name for entry in os.scandir(data_dir)
                            if entry.name.endswith('.jpg')]
@@ -97,7 +106,6 @@ class RcnnDataset(Dataset):
                     self.print_info(False, "{} doesn't exist".format(label_path))
                     sys.exit(1)
                 with open(label_path, 'r') as f:
-                    # better performance?
                     box_lines = f.readlines()
                 img = imread(image_path, cv2.IMREAD_GRAYSCALE)
                 images.append(img)
@@ -116,27 +124,21 @@ class RcnnDataset(Dataset):
                 data.append(datum)
 
             max_shape = np.array(images_shape).max(0)
-            self.print_info(False, "extract DTP")
-            c_range = list(range(1, 40, 3))  # horizontal range
-            r_range = list(range(1, 40, 3))  # vertical range
-            w_range = (33, 284)
-            h_range = (44, 310)
-            self.extract_dtp(data, c_range, r_range, w_range, h_range)
-            self.print_info(False, "extract DTP done")
             for datum in data:
                 try:
-                    datum['region_proposals'] = np.load('npz/' + datum['id'].split('/')[-1][: -4] + '_dtp.npz')[
+                    datum['region_proposals'] = \
+                    np.load('npz/' + 'color_out-' + datum['id'].split('/')[-1] + '_dtp.npz')[
                         'regions'].tolist()
                 except:
-                    print('npz/' + datum['id'].split('/')[-1][: -4] + '_dtp.npz')
+                    print('npz/' + 'color_out' + datum['id'].split('/')[-1] + "_dtp.npz doesn't exist!")
             # self.filter_ground_truth_boxes(images, data)
-            if not os.path.exists(db_file):
-                create_db(images, db_file, max_shape)
+            if not os.path.exists(os.path.join(self.parent_dir, 'cache', db_file)):
+                create_db(images, os.path.join(self.parent_dir, 'cache', db_file), max_shape)
 
-            with open(json_path, "w") as f:
+            with open(os.path.join(self.parent_dir, 'cache', json_name), "w") as f:
                 json.dump(data, f)
         else:
-            with open(json_path, "r") as f:
+            with open(os.path.join(self.parent_dir, 'cache', json_name), "r") as f:
                 data = json.load(f)
 
         return data
@@ -160,10 +162,10 @@ class RcnnDataset(Dataset):
                     okay.append(box)
 
             # Only keep unique proposals in downsampled coordinate system, i.e., remove aliases
-            #self.print_info(True, "in utils.filter_region_proposals, before unique_boxes {}".
-            #format(len(datum['region_proposals'])))
+            # self.print_info(True, "in utils.filter_region_proposals, before unique_boxes {}".
+            # format(len(datum['region_proposals'])))
             region_proposals = np.unique(okay, axis=0)
-            #self.print_info(True, "in utils.filter_region_proposals, after unique_boxes {}".format(len(okay)))
+            # self.print_info(True, "in utils.filter_region_proposals, after unique_boxes {}".format(len(okay)))
             datum['region_proposals'] = region_proposals
 
     def filter_ground_truth_boxes(self, images, data):
@@ -230,67 +232,6 @@ class RcnnDataset(Dataset):
             h = y2 - y1
             datum[box_type] = np.stack([xc, yc, w, h], 1)
 
-    def extract_regions(self, t_img, c_range, r_range, w_range, h_range):
-        all_boxes = []
-        min_w, max_w = w_range
-        min_h, max_h = h_range
-        for r in r_range:
-            for c in c_range:
-                s_img = cv2.morphologyEx(t_img, cv2.MORPH_CLOSE, np.ones((r, c), dtype=np.ubyte))
-                n, l_img, stats, centroids = cv2.connectedComponentsWithStats(s_img, connectivity=4)
-                boxes = [[b[0], b[1], b[0] + b[2], b[1] + b[3]] for b in stats
-                         if min_w <= b[2] <= max_w and min_h <= b[3] <= max_h]
-                all_boxes += boxes
-        return all_boxes
-
-    def find_regions(self, img, threshold_range, c_range, r_range, w_range, h_range):
-        """
-        Extracts DTP from an image using different thresholds and morphology kernels
-        """
-
-        ims = []
-        for t in threshold_range:
-            ims.append((img < t).astype(np.ubyte))
-
-        ab = []
-        for t_img in ims:
-            ab += self.extract_regions(t_img, c_range, r_range, w_range, h_range)
-
-        return ab
-
-    def extract_dtp(self, data, c_range, r_range, w_range, h_range, multiple_thresholds=True):
-        q = Queue()
-        for i, datum in enumerate(data):
-            q.put((i, datum))
-
-        def worker():
-            while True:
-                i, datum = q.get()
-                file_name = datum['id']
-                # change to a parameter?
-                proposal_file = 'npz/' + file_name.split('/')[-1][:-4] + '_dtp.npz'
-                if not os.path.exists(proposal_file):
-                    img = imread(file_name)
-                    # extract regions
-                    m = img.mean()
-                    if multiple_thresholds:
-                        threshold_range = np.arange(0.7, 1.01, 0.1) * m
-                    else:
-                        threshold_range = np.array([0.9]) * m
-                    region_proposals = self.find_regions(img, threshold_range, c_range, r_range, w_range, h_range)
-                    region_proposals = self.unique_boxes(region_proposals)
-                    np.savez_compressed(proposal_file, regions=region_proposals)
-                else:
-                    self.print_info(False, "dtp.npz for {} already exists, skip it".format(file_name))
-                q.task_done()
-
-        num_workers = 8
-        for i in range(num_workers):
-            t = Thread(target=worker)
-            t.daemon = True
-            t.start()
-        q.join()
-
     def print_info(self, is_debug, message):
         if is_debug:
             self.logger.debug(message)
@@ -323,7 +264,6 @@ class RandomSampler(Sampler):
         self.num_iters = num_iters
 
     def __iter__(self):
-
         return iter(torch.randperm(self.num_iters))
 
     def __len__(self):

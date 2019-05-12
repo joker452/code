@@ -1,20 +1,16 @@
 import torch
+import easydict
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-import easydict
-
-# Load submodules
-from .reshape_box_features import ReshapeBoxFeatures
+from . import utils
+from . import box_utils
 from .make_anchors import MakeAnchors
-from .apply_box_transform import ApplyBoxTransform
 from .box_sampler_helper import BoxSamplerHelper
 from .bilinear_roi_pooling import BilinearRoiPooling
-from .box_regression_criterion import BoxRegressionCriterion
+from .apply_box_transform import ApplyBoxTransform
 from .invert_box_transform import InvertBoxTransform
-
-from . import box_utils
-from . import utils
+from .reshape_box_features import ReshapeBoxFeatures
+from .box_regression_criterion import BoxRegressionCriterion
 
 
 class RPN(nn.Module):
@@ -25,8 +21,8 @@ class RPN(nn.Module):
         elif opt.anchors == 'original':
             # 2 x k w, h
             self.anchors = torch.Tensor([[30, 30], [60, 60], [80, 80], [100, 100], [120, 120],
-                                           [30, 45], [60, 90], [80, 120], [100, 150], [120, 180],
-                                           [30, 20], [60, 20], [90, 60], [105, 70], [120, 80]]).t().clone()
+                                         [30, 45], [60, 90], [80, 120], [100, 150], [120, 180],
+                                         [30, 20], [60, 20], [90, 60], [105, 70], [120, 80]]).t().clone()
 
         self.anchors = self.anchors * opt.anchor_scale
         # k
@@ -34,7 +30,7 @@ class RPN(nn.Module):
         self.std = opt.std
         self.zero_box_conv = opt.zero_box_conv
         s = 1
-        self.pad = int(math.floor(opt.rpn_filter_size / 2))
+        self.pad = opt.rpn_filter_size // 2
 
         self.conv_layer = nn.Conv2d(opt.input_dim, opt.rpn_num_filters,
                                     kernel_size=opt.rpn_filter_size, padding=self.pad)
@@ -93,9 +89,10 @@ class RPN(nn.Module):
 
 
 class LocalizationLayer(nn.Module):
-    def __init__(self, opt):
+    def __init__(self, opt, logger):
         super(LocalizationLayer, self).__init__()
         # has its own opt
+        self.logger = logger
         self.opt = easydict.EasyDict()
         self.opt.input_dim = utils.getopt(opt, 'input_dim')
         self.opt.output_size = utils.getopt(opt, 'output_size')
@@ -115,25 +112,21 @@ class LocalizationLayer(nn.Module):
         self.opt.sampler_high_thresh = utils.getopt(opt, 'sampler_high_thresh', 0.6)
         self.opt.sampler_low_thresh = utils.getopt(opt, 'sampler_low_thresh', 0.3)
         self.opt.train_remove_outbounds_boxes = utils.getopt(opt, 'train_remove_outbounds_boxes', 1)
+        self.opt.verbose = utils.getopt(opt, 'verbose')
         self.opt.box_reg_decay = utils.getopt(opt, 'box_reg_decay', 5e-5)
         self.opt.tunable_anchors = utils.getopt(opt, 'tunable_anchors', False)
         self.opt.backprop_rpn_anchors = utils.getopt(opt, 'backprop_rpn_anchors', False)
-        self.box_loss = utils.getopt(opt, 'wordness_loss')
-        self.opt.contrastive_loss = utils.getopt(opt, 'contrastive_loss')
 
         self.stats = easydict.EasyDict()
-        self.stats.losses = easydict.EasyDict()
-        self.stats.vars = easydict.EasyDict()
         self.dtp_train = utils.getopt(opt, 'dtp_train', False)
 
         if self.dtp_train:
             self.opt.sampler_batch_size //= 2
         sampler_opt = {'batch_size': self.opt.sampler_batch_size,
                        'low_thresh': self.opt.sampler_low_thresh,
-                       'high_thresh': self.opt.sampler_high_thresh,
-                       'contrastive_loss': self.opt.contrastive_loss}
+                       'high_thresh': self.opt.sampler_high_thresh}
         self.rpn = RPN(self.opt)
-        self.box_sampler_helper = BoxSamplerHelper(sampler_opt)
+        self.box_sampler_helper = BoxSamplerHelper(sampler_opt, logger)
         self.roi_pooling = BilinearRoiPooling(self.opt.output_size[0], self.opt.output_size[1])
         self.invert_box_transform = InvertBoxTransform()
 
@@ -172,7 +165,6 @@ class LocalizationLayer(nn.Module):
 
     def _forward_train(self, input):
         cnn_features, gt_boxes = input[0], input[1]
-        gpu = cnn_features.is_cuda
 
         # Make sure that setImageSize has been called
         # different size for each image
@@ -198,9 +190,7 @@ class LocalizationLayer(nn.Module):
         if self.opt.train_remove_outbounds_boxes == 1:
             bounds = {'x_min': 0, 'y_min': 0, 'x_max': self.image_width, 'y_max': self.image_height}
             self.box_sampler_helper.setBounds(bounds)
-        # may return idx according to opt
-        torch.cuda.empty_cache()
-        sampler_out = self.box_sampler_helper.forward((rpn_out, (gt_boxes, )))
+        sampler_out = self.box_sampler_helper.forward((rpn_out, (gt_boxes,)))
 
         # Unpack pos data
         pos_data, pos_target_data, neg_data = sampler_out
@@ -217,10 +207,9 @@ class LocalizationLayer(nn.Module):
         rpn_pos, num_neg = pos_boxes.size(0), neg_scores.size(0)
 
         # Compute objectness loss
-        # why?
         pos_labels = torch.ones(rpn_pos, dtype=torch.long)
         neg_labels = torch.zeros(num_neg, dtype=torch.long)
-        if gpu:
+        if cnn_features.is_cuda:
             pos_labels = pos_labels.cuda()
             neg_labels = neg_labels.cuda()
 
@@ -228,8 +217,8 @@ class LocalizationLayer(nn.Module):
 
         obj_loss_pos = obj_weight * self.box_scoring_loss(pos_scores, pos_labels)
         obj_loss_neg = obj_weight * self.box_scoring_loss(neg_scores, neg_labels)
-        self.stats.losses.obj_loss_pos = obj_loss_pos.data
-        self.stats.losses.obj_loss_neg = obj_loss_neg.data
+        self.stats.obj_loss_pos = obj_loss_pos.detach()
+        self.stats.obj_loss_neg = obj_loss_neg.detach()
 
         if self.opt.backprop_rpn_anchors:
             reg_loss = self.box_reg_loss.forward((pos_anchors, pos_trans), pos_target_boxes)
@@ -246,8 +235,8 @@ class LocalizationLayer(nn.Module):
             mask_sum = max_trans_mask.float().sum() / 4
 
             # This will yield correct graph according to https://discuss.pytorch.org/t/how-to-use-condition-flow/644/5
-            if mask_sum.data.item() > 0:
-                print('WARNING: Masking out %d boxes in LocalizationLayer' % mask_sum.item())
+            if mask_sum.detach().item() > 0:
+                self.logger.warning('Masking out %d boxes in LocalizationLayer' % mask_sum.detach().item())
                 pos_trans[max_trans_mask] = 0
                 pos_trans_targets[max_trans_mask] = 0
 
@@ -255,17 +244,15 @@ class LocalizationLayer(nn.Module):
             weight = self.opt.mid_box_reg_weight
             reg_loss = weight * self.box_reg_loss.forward(pos_trans, pos_trans_targets)
 
-        self.stats.losses.box_reg_loss = reg_loss.data
+        self.stats.box_reg_loss = reg_loss.detach()
 
         # Fish out the box regression loss
-        # Why act_reg?
-        self.stats.losses.box_decay_loss = act_reg.data
+        self.stats.box_decay_loss = act_reg.detach()
 
         # Compute total loss
         total_loss = obj_loss_pos + obj_loss_neg + reg_loss + act_reg
-        self.stats.losses.total_loss = total_loss.data
         if self.dtp_train:
-            dtp_sampler_out = self.box_sampler_helper.forward(((input[2],), (gt_boxes, )))
+            dtp_sampler_out = self.box_sampler_helper.forward(((input[2],), (gt_boxes,)))
             dtp_pos_data, dtp_pos_target_data, dtp_neg_data = dtp_sampler_out
             dtp_pos_boxes = dtp_pos_data[0]
             dtp_pos_target_boxes = dtp_pos_target_data[0]
@@ -279,11 +266,11 @@ class LocalizationLayer(nn.Module):
 
         # Run the RoI pooling forward for roi_boxes
         self.roi_pooling.setImageSize(self.image_height, self.image_width)
-        # print("in localization_layer roi_boxes size ", roi_boxes.size())
         roi_features = self.roi_pooling.forward((cnn_features[0], roi_boxes))
-        #output = (roi_features, roi_boxes, pos_target_boxes, pos_target_labels, y, total_loss)
         # roi_features are the cnn features after bilinear_pooling
-        output = (roi_features, roi_boxes, pos_target_boxes, total_loss, rpn_pos)
+        output = (roi_features, roi_boxes, pos_target_boxes, total_loss)
+        if self.dtp_train:
+            output += (rpn_pos,)
         return output
 
     # Clamp parallel arrays only to valid boxes (not oob of the image)
@@ -296,12 +283,6 @@ class LocalizationLayer(nn.Module):
         mask = valid.view(1, -1, 1).expand_as(data)
         return data[mask].view(1, -1, data.size(2))
 
-    # def _forward_test(self, input):
-    #     with torch.no_grad():
-    #         cnn_features, dtp_boxes = input
-    #         self.roi_pooling.setImageSize(self.image_height, self.image_width)
-    #         roi_features = self.roi_pooling.forward((cnn_features[0], dtp_boxes))
-    #         return (roi_features, dtp_boxes)
 
     def _forward_test(self, input):
         cnn_features = input
@@ -321,7 +302,8 @@ class LocalizationLayer(nn.Module):
         del rpn_trans
         # Maybe clip boxes to image boundary
         if arg.clip_boxes:
-            bounds = {'x_min': 1, 'y_min': 1,
+            bounds = {'x_min': 1,
+                      'y_min': 1,
                       'x_max': self.image_width,
                       'y_max': self.image_height}
             rpn_boxes, valid = box_utils.clip_boxes(rpn_boxes, bounds, 'xcycwh')
@@ -343,24 +325,23 @@ class LocalizationLayer(nn.Module):
         neg_exp = rpn_scores_exp[0, :, 1]
         scores = (pos_exp + neg_exp).pow(-1) * pos_exp
 
-        verbose = False
-        if verbose:
-            print('in LocalizationLayer forward_test')
-            print('Before NMS there are %d boxes' % num_boxes)
-            print('Using NMS threshold %f' % arg.nms_thresh)
+        if self.opt.verbose:
+            self.logger.info('in LocalizationLayer forward_test')
+            self.logger.info('Before NMS there are %d boxes' % num_boxes)
+            self.logger.info('Using NMS threshold %f' % arg.nms_thresh)
 
         # Run NMS and sort by objectness score
         boxes_scores = torch.cat((rpn_boxes_x1y1x2y2, scores.view(-1, 1)), dim=1)
 
         if arg.max_proposals == -1:
-            idx = box_utils.nms(boxes_scores.data, arg.nms_thresh)
+            idx = box_utils.nms(boxes_scores.detach(), arg.nms_thresh)
         else:
-            idx = box_utils.nms(boxes_scores.data, arg.nms_thresh, arg.max_proposals)
+            idx = box_utils.nms(boxes_scores.detach(), arg.nms_thresh, arg.max_proposals)
 
         rpn_boxes_nms = torch.squeeze(rpn_boxes)[idx]
 
-        if verbose:
-            print('After NMS there are %d boxes' % rpn_boxes_nms.size(0))
+        if self.opt.verbose:
+            self.logger.info('After NMS there are %d boxes' % rpn_boxes_nms.size(0))
 
         output = rpn_boxes_nms
         return output

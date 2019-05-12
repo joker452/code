@@ -43,7 +43,6 @@ class MakeAnchors(torch.nn.Module):
 
     def forward(self, input):
         N, H, W = input.size(0), input.size(2), input.size(3)
-        # 15
         k = self.anchors.size(1)
 
         x_centers = torch.arange(0, W).type_as(input)

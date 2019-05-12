@@ -1,22 +1,16 @@
-#!/usr/bin/env python2
-# -*- coding: utf-8 -*-
 """
 Created on Thu Oct 12 23:01:57 2017
 
 @author: tomas
 """
-
-from . import box_sampler
 import torch
 from . import utils
-
+from . import box_sampler
 
 class BoxSamplerHelper(torch.nn.Module):
-    def __init__(self, opt):
+    def __init__(self, opt, logger):
         super(BoxSamplerHelper, self).__init__()
-        self.box_sampler = box_sampler.BoxSampler(opt)
-        self.contrastive_loss = opt['contrastive_loss']
-        self.return_index = utils.getopt(opt, 'return_index', False)
+        self.box_sampler = box_sampler.BoxSampler(opt, logger)
 
     def setBounds(self, bounds):
         self.box_sampler.setBounds(bounds)
@@ -94,6 +88,5 @@ class BoxSamplerHelper(torch.nn.Module):
             target.append(d[:, pos_target_idx].view(num_pos, D))
 
         output = (pos, target, neg)
-        if self.return_index:
-            output += (idxs,)
+
         return output

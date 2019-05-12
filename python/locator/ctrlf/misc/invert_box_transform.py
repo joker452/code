@@ -1,11 +1,10 @@
-#!/usr/bin/env python2
-# -*- coding: utf-8 -*-
 """
 Created on Fri Oct 13 12:44:30 2017
 
 @author: tomas
 """
 import torch
+
 
 class InvertBoxTransform(torch.nn.Module):
     """

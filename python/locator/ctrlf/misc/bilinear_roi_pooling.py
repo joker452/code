@@ -1,6 +1,6 @@
 import torch
-from . import batch_bilinear_sampler_bhwd
 from . import box_to_affine
+from . import batch_bilinear_sampler_bhwd
 
 """
 BilinearRoiPooling is a layer that uses bilinear sampling to pool featurs for a
@@ -27,12 +27,13 @@ Return:
 - roi_features: Tensor of shape (B, C, output_height, output_width)
 """
 
+
 class BilinearRoiPooling(torch.nn.Module):
     def __init__(self, output_height, output_width):
         super(BilinearRoiPooling, self).__init__()
         self.output_height = output_height
         self.output_width = output_width
-  
+
         #  -- box_to_affine converts boxes of shape (B, 4) to affine parameter
         #  -- matrices of shape (B, 2, 3); on each forward pass we need to call
         #  -- box_to_affine.setSize() to set the size of the input image.
@@ -49,8 +50,8 @@ class BilinearRoiPooling(torch.nn.Module):
 
     def forward(self, input):
         assert self.image_height and self.image_width and not self.called_forward, \
-             'Must call setImageSize before each forward pass'
-        
+            'Must call setImageSize before each forward pass'
+
         feats, boxes = input
         B = boxes.size(0)
         C, H, W = feats.size()

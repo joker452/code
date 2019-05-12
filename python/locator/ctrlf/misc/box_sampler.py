@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Thu Oct 12 11:57:28 2017
 
@@ -12,15 +11,15 @@ from . import boxIoU
 
 
 class BoxSampler(nn.Module):
-    def __init__(self, opt):
+    def __init__(self, opt, logger):
         super(BoxSampler, self).__init__()
         self.opt = {}
         self.low_thresh = utils.getopt(opt, 'low_thresh', 0.4)
         self.high_thresh = utils.getopt(opt, 'high_thresh', 0.75)
         self.batch_size = utils.getopt(opt, 'batch_size', 256)
-        self.debug = utils.getopt(opt, 'debug', False)
         self.x_min, self.x_max = None, None
         self.y_min, self.y_max = None, None
+        self.logger = logger
 
     def unpack_dims(self, input_boxes, target_boxes):
         N, B1 = input_boxes.size(0), input_boxes.size(1)
@@ -102,7 +101,7 @@ class BoxSampler(nn.Module):
                 #    -- regularly then we should handle it more cleverly.
 
                 neg_mask = 1 - pos_mask  # set neg_mask to inverse of pos_mask
-                print("In box_sampler.py, no negatives.")
+                self.logger.warning("In box_sampler.py, no negatives!")
 
             # [total_pos, 1]-> total_pos
             # containing pos boxes index in the total boxes
@@ -113,14 +112,11 @@ class BoxSampler(nn.Module):
             total_neg = neg_mask_nonzero.size(0)
             num_pos = int(min(self.batch_size // 2, total_pos))
             num_neg = self.batch_size - num_pos
-            #print("num_pos:{}".format(num_pos))
             pos_p = torch.ones(total_pos)
             neg_p = torch.ones(total_neg)
             # sample num_pos boxes from total_positive
             pos_sample_idx = torch.multinomial(pos_p, num_pos, replacement=False)
             neg_replace = total_neg < num_neg
-            #        if neg_replace:
-            #            print "In box_sampler.py, negatives with replacement"
 
             neg_sample_idx = torch.multinomial(neg_p, num_neg, replacement=neg_replace)
 
@@ -133,6 +129,5 @@ class BoxSampler(nn.Module):
             # find the corresponding target box indexes
             pos_target_idx = input_idx.view(-1)[pos_input_idx].view(num_pos)
             neg_input_idx = neg_mask_nonzero[neg_sample_idx]
-            #print(pos_input_idx.shape, pos_target_idx.shape, neg_input_idx.shape)
             output = (pos_input_idx, pos_target_idx, neg_input_idx)
             return output
