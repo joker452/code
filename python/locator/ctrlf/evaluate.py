@@ -37,14 +37,14 @@ def extract_features(model, loader, args):
     return outputs
 
 
-def mAP(model, loader, args, logger, i, verbose):
+def mAP(model, loader, args, logger, i):
     features = extract_features(model, loader, args)
     overlap_thresholds = [0.25, 0.5, 0.75]
-    res = postprocessing(features, loader, args, logger, i, verbose, overlap_thresholds)
+    res = postprocessing(features, loader, args, logger, i, overlap_thresholds)
     return res
 
 
-def postprocessing(features, loader, args, logger, it, verbose, thresholds):
+def postprocessing(features, loader, args, logger, it, thresholds):
     score_nms_overlap = args.score_nms_overlap  # For wordness scores
     score_threshold = args.score_threshold
     re = [[], [], []]
@@ -67,9 +67,9 @@ def postprocessing(features, loader, args, logger, it, verbose, thresholds):
             scores = 1 / (1 + torch.exp(-roi_scores))
             if args.verbose:
                 logger.info("in postprocessing at the very first")
-                logger.info("rpn size", proposals.size())
+                logger.info("rpn size {}".format(proposals.size()))
                 if args.use_external_proposals:
-                    logger.info("dtp size", external_proposals.size())
+                    logger.info("dtp size {}".format(external_proposals.size()))
             if args.use_external_proposals:
                 eproposal_scores = 1 / (1 + torch.exp(-eproposal_scores))
                 scores = torch.cat((scores, eproposal_scores), 0)
@@ -86,19 +86,17 @@ def postprocessing(features, loader, args, logger, it, verbose, thresholds):
             tmp = threshold_pick.view(-1, 1).expand(threshold_pick.size(0), 4)
             proposals = proposals[tmp].view(-1, 4)
 
-            # recalls(proposals, gt_boxes, overlap_thresholds, entry, '2_total')
 
             if args.use_external_proposals:
                 rpn_proposals = rpn_proposals[tmp[:nrpn]].view(-1, 4)
                 dtp_proposals = dtp_proposals[tmp[nrpn:]].view(-1, 4)
-            # recalls(dtp_proposals, gt_boxes, overlap_thresholds, entry, '2_dtp')
-            # recalls(rpn_proposals, gt_boxes, overlap_thresholds, entry, '2_rpn')
+
             if args.verbose:
                 logger.info("in postprocessing after score prune")
-                logger.info("total ", proposals.size())
+                logger.info("total size ".format(proposals.size()))
                 if args.use_external_proposals:
-                    logger.info("rpn ", rpn_proposals.size())
-                    logger.info("dtp ", dtp_proposals.size())
+                    logger.info("rpn size ".format(rpn_proposals.size()))
+                    logger.info("dtp size ".format(dtp_proposals.size()))
 
             dets = torch.cat([proposals.float(), scores.view(-1, 1)], 1)
             if dets.size(0) <= 1:
@@ -118,10 +116,10 @@ def postprocessing(features, loader, args, logger, it, verbose, thresholds):
 
             if args.verbose:
                 logger.info("in postprocessing after nms")
-                logger.info("total ", proposals.size())
+                logger.info("total size ".format(proposals.size()))
                 if args.use_external_proposals:
-                    logger.info("rpn ", rpn_proposals.size())
-                    logger.info("dtp ", dtp_proposals.size())
+                    logger.info("rpn size ".format(rpn_proposals.size()))
+                    logger.info("dtp size ".format(dtp_proposals.size()))
             B1 = proposals.shape[0]
             B2 = gt_boxes.shape[0]
             ious = bbox_overlaps(proposals, gt_boxes).view(1, B1, B2)
@@ -153,7 +151,7 @@ def postprocessing(features, loader, args, logger, it, verbose, thresholds):
             proposals = proposals.cpu().numpy()
 
             img = img.numpy().squeeze()
-            img = img + 37.825162971330045 / 255
+            img = img + args.image_mean / 255
             img = img * 255
             img = img.astype(np.uint8)
             im1 = img.copy()

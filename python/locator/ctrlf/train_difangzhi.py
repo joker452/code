@@ -75,6 +75,7 @@ def train():
     args.rpn_nms_thresh = opt.test_rpn_nms_thresh
     args.numpy = False
     args.verbose = False
+    args.image_mean = testset.image_mean
 
     trainlog = ''
 
@@ -125,7 +126,7 @@ def train():
         if it % opt.eval_every == opt.eval_every - 1:
             # predict_boxes_view = predict_boxes.detach().cpu().numpy()
             # test(data[0].cpu().numpy().squeeze(), predict_boxes_view, it)
-            re, pr = mAP(model, testloader, args, logger, it, True)
+            re, pr = mAP(model, testloader, args, logger, it)
             with open("./log/res_" + start_time + ".txt", "a", encoding="utf-8") as f:
                 f.write("test at {} Threshold25 Recall:{:.2%}, Precision:{:.2%}\n".format(it, re[0], pr[0]))
                 f.write("test at {} Threshold50 Recall:{:.2%}, Precision:{:.2%}\n".format(it, re[1], pr[1]))
