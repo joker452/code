@@ -80,10 +80,10 @@ def extract_dtp(out_dir, file_names, c_range, r_range, w_range, h_range, multipl
                     total += 1
                     regions.append((x1, y1, x2, y2))
                 save_name = os.path.normpath(file_name).split(os.sep)
-                save_name = save_name[-2] + '-' + save_name[-1]
+                save_name = save_name[-1].split('.')[0]
                 name = out_dir + save_name + '_dtp.npz'
                 np.savez_compressed(name, regions=regions, total=total)
-                image.save(os.path.join(out_dir, 'image', save_name))
+                image.save(os.path.join(out_dir, 'image', save_name + '.jpg'))
             except:
                 lock.acquire()
                 print('exception thrown with file', file_name)

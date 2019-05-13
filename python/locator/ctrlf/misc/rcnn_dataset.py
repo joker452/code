@@ -14,6 +14,7 @@ from torchvision import transforms
 from threading import Thread, Lock
 from queue import Queue
 
+
 def mkdir(dir_name):
     if not os.path.isdir(dir_name):
         try:
@@ -25,6 +26,7 @@ def mkdir(dir_name):
             print("Make directory for {}".format(dir_name))
     else:
         print("{} already exists".format(dir_name))
+
 
 def create_db(images, db_file, max_shape):
     print("begin create h5 data file")
@@ -127,10 +129,10 @@ class RcnnDataset(Dataset):
             for datum in data:
                 try:
                     datum['region_proposals'] = \
-                    np.load('npz/' + 'color_out-' + datum['id'].split('/')[-1] + '_dtp.npz')[
-                        'regions'].tolist()
+                        np.load('npz/' + datum['id'].split('/')[-1].split('.')[0] + '_dtp.npz')[
+                            'regions'].tolist()
                 except:
-                    print('npz/' + 'color_out' + datum['id'].split('/')[-1] + "_dtp.npz doesn't exist!")
+                    print('npz/' + 'color_out' + datum['id'].split('/')[-1].split('.')[0] + "_dtp.npz doesn't exist!")
             # self.filter_ground_truth_boxes(images, data)
             if not os.path.exists(os.path.join(self.parent_dir, 'cache', db_file)):
                 create_db(images, os.path.join(self.parent_dir, 'cache', db_file), max_shape)

@@ -158,14 +158,14 @@ def postprocessing(features, loader, args, logger, it, thresholds):
             im = Image.fromarray(img)
             d = ImageDraw.Draw(im)
             for box in r:
-                x1, y1, x2, y2 = box[0], box[1], box[2], box[3]
+                x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
                 d.rectangle([x1, y1, x2, y2], outline='white')
             im.save(os.path.join(args.out_path, "rpn", "it{}-{}.png".format(it, i)))
             im = Image.fromarray(im1)
             d = ImageDraw.Draw(im)
             with open(os.path.join(args.out_path, 'it{}-{}.txt'.format(it, i)), 'w', encoding='utf-8') as f:
                 for box in proposals:
-                    x1, y1, x2, y2 = box[0], box[1], box[2], box[3]
+                    x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
                     d.rectangle([x1, y1, x2, y2], outline='white')
                     f.write(str(x1) + " " + str(y1) + " " + str(x2) + " " + str(y2) + "\n")
             im.save(os.path.join(args.out_path, "dtp", "it{}-{}.png".format(it, i)))

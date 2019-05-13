@@ -1,0 +1,107 @@
+# 程序说明
+如无另外说明，python程序均要求使用Python3。图像应为png或者jpg格式。    
+程序运行时顺序为：
+1. 预处理
+2. 进行连通域分析（仅基于深度学习的定位方法需要）
+3. 字符定位
+
+## 预处理
+对应程序为preprocess.py。    
+### 数据准备
+将原始图片和其对应的ground truth标注txt放于同一文件夹下，其中图片和标注的文件名一一对应，如：  
+> `sourcedir/xxx.jpg`       -- 图片名为xxx  
+  `sourcedir/xxx.txt`       -- 标注txt名同样为xxx
+
+### 参数
+唯一需要指定的参数是`img_dir`，它是图片和标注所在文件夹，请使用绝对路径，并在路径最后加上`/`，如：  
+> `python preprocess.py -img_dir /data/source_dir/`  
+
+### 输出
+程序会产生两个文件夹，分别为`bw_out`，和`color_out`。其中`bw_out`是进行了完整的预处理后结果，`color_out`则是只进行了边界移除。  
+两个文件夹中的内容均为图像及其对应的经过处理的标注文件（进行边界移除后需要改变标注的位置）。  
+`bw_out`中的内容是后续定位算法的输入。  
+`color_out`中的内容是连通域分析的输入（因为连通域分析要求输入图像不能为二值图像）。  
+
+## 连通域分析（可选）
+对应程序为dtp.py。  
+### 参数
+有两个参数需要设置：
+1. `image_dir`，将其设置为预处理得到的`color_out`所在位置，请使用绝对路径。  
+2. `out_dir`，输出文件夹，请使用绝对路径，并在结尾加上`/`。  
+运行示例：  
+> `python dtp.py -image_dir /data1/color_out -out_dir /data1/out/`
+
+### 输出
+程序会在指定的输出路径创建一个`image`文件夹，里面是连通域分析得到的可视化结果。在输出路径的根目录下则会创建后缀名为`.npz`的文件，  
+为连通域分析得到的结果，会作为后续算法的输入。  
+### 说明
+连通域分析算法比较慢，单张图像大约需要30s左右，目前程序使用了多个线程并行处理，但是图像数目很多时仍然需要较长时间。  
+
+## 基于投影的字符定位算法
+对应`locator/OCR`文件夹下程序。  
+### 依赖
+* OpenCV >= 3.4
+* Cmake >= 3.3  
+### 参数
+将`test.sh`中`/mnt/c/Users/Deng/Desktop/bw_out/.jpg`中`.jpg`前的部分改为预处理得到的`bw_out`路径，请使用绝对路径。  
+### 编译
+进入`OCR`目录后  
+1. `mkdir build && cd build`  
+2. `cmake .. && make`  
+
+### 运行
+在`build`目录下  
+1. `cp ../test.sh ./`
+2. `mkdir res_img res_txt`
+3. `./test.sh` （运行前请确保有执行权限）  
+
+### 输出
+`res_img`中会保存字符定位的可视化结果，`res_txt`是检测得到的对应的`.txt`标注文件。  
+
+## 基于深度学习的字符定位算法
+### 依赖
+* Pytorch >= 0.4.1  
+* 其它基本Anaconda都自带了，如果提示缺少包，使用conda安装即可。  
+
+### 数据准备
+1. 在`rcnn`目录下创建`dataset/train`，`datast/val`，`dataset/test`以及`npz`目录。  
+2. 分别复制数据到`rcnn/dataset/train`等。注意，训练和验证集必须与`bw_out`中格式一致，即图片和标注一一对应。测试集则只需要图片。拷贝时执行如：  
+    > `cp xxx/bw_out/* xxx/rcnn/dataset/train/`
+3. 复制连通域分析结果到`rcnn/dtp`目录下，如：  
+    > `cp xxx/dtp_out/*.npz xxx/rcnn/dtp/`  
+    
+### 参数
+大部分参数都使用默认参数即可，有几个重要的参数说明如下： 
+1. `image_size`：网络输入的大小，设置过大会导致显存溢出，推荐设置为900。   
+2. `dtp_train`：值为1，使用连通域分析结果训练，值为0，则不使用。推荐使用，默认为1。  
+3. `pretrained`：是否加载已经训练好的模型的权重。在继续训练时需要声明。  
+4. `model_path`：训练好的模型的路径，如果声明了`pretrained`，那么必须提供有效的`model_path`参数。  
+5. `eval_every`：训练时多少次迭代进行一次验证，不要设置的过小，否则模型预测的结果中反例过多，采样时会出现随机的结果，默认为200。  
+6. `max_iters`：训练时最大迭代次数，默认为10000。  
+7. `out_path`：训练时保存验证集上结果的目录，默认为`./out`。  
+
+### 训练
+对应程序train.py。  
+开始训练之前需要修改第21行的`trainset`以及第26行的`valset`中的数据集路径，将其设置为`dataset`文件夹下相应文件夹即可，  
+结尾需要加`/`。  
+第一次加载数据集时会生成h5和json文件，会比较慢，但再次加载数据时会比较快。请确保此时`rcnn/npz`文件夹下有对应的`.npz`文件。  
+如果没有验证集，那么将`valset`的数据集路径设为和`trainset`一样即可，并修改`eval_every`，使其大于`max_iters`即可。  
+运行示例：  
+> `python train.py -image_size 900`     -- 除image_size均使用默认参数  
+  `python train.py -image_size 900 -eval_every 20000`       -- 不验证
+
+### 测试
+对应程序inference.py。  
+同样，需要修改第21行`testset`中数据集的路径为`rcnn/dataset`下对应的文件夹，结尾需要加`/`。  
+运行示例：  
+> `python inference.py -image_size 900 -model_path ./checkpoints/rcnn/rcnn_0.91_0.83.pth.tar`
+
+### 输出
+#### 训练
+训练时程序会创建`log`文件夹，其中保存了在验证集上，不同IOU阈值下的召回率和准确率。  
+训练时还会将验证集的中间结果保存在自动创建的`out`文件夹下，`out`根目录下会有检测到的字符位置坐标文件，`out/image`则是对应的可视化结果。  
+满足召回率、准确率均在80%以上的网络参数会保存在自动创建的`checkpoints/rcnn`文件夹下，文件名为训练开始时间与召回率、准确率的拼接。  
+#### 测试
+测试时程序会创建`test_out`文件夹，其根目录中保存了检测到的字符的坐标文件，`test_out/image`中则保存了可视化结果。  
+
+
