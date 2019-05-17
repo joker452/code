@@ -9,15 +9,6 @@ from functools import cmp_to_key
 from torchvision.transforms import transforms
 
 
-def draw(img, boxes, i):
-    d = ImageDraw.Draw(img)
-    for words in boxes:
-        for word in words:
-            x1, y1, x2, y2 = word
-            d.rectangle([x1, y1, x2, y2], outline='white', width=4)
-    img.save("/mnt/data1/dengbowen/resnet/{}.png".format(i))
-
-
 def write_char(f, x1, y1, x2, y2, cur_class, next_class, nnext_class):
     f.write(str(x1) + " " + str(y1) + " " +
             str(x2) + " " + str(y2) + " " +
@@ -29,7 +20,7 @@ def get_table_row(cnn, images, img_dir, res_dir, out_dir):
     with torch.no_grad():
         trans = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
         for image in images:
-            img_name = '143'
+            img_name = image.split('.')[0]
             with open(os.path.join(res_dir, img_name + '.txt'), 'r', encoding='utf-8') as f:
                 lines = f.readlines()
             positions = []
@@ -100,26 +91,31 @@ if __name__ == '__main__':
     # get the class of each detection result, create table for both detection and gt
     db_path = "./index.db"
     img_dir = "./bw_out"
-    # detection result dir
-    res_dir = "./res_txt"
+    # ocr detection result dir
+    ocr_dir = "/mnt/data1/dengbowen/resnet/res_txt/"
+    ocr_out_dir = "./ocr_out"
+    # rcnn detection result dir
+    rcnn_dir = "/mnt/data1/dengbowen/python/locator/rcnn/test_out/"
+    rcnn_out_dir = "./rcnn_out"
     # output txt dir, add class and id to detectioon result
-    out_dir = "./out"
     gt_dir = "./bw_out"
-    model_path = './output/_ResNet03-30-14-33_89.96.pth.tar'
+    model_path = './output/_ResNet03-30-14-33_89.98.pth.tar'
     if not os.path.exists(db_path):
-        mkdir(out_dir)
+        mkdir(ocr_out_dir)
+        mkdir(rcnn_out_dir)
         arch = '50'
         nl_type = 'cgnl'
         nl_nums = 1
         pool_size = 7
         char_class = 5601
-        cnn = resnet.model_hub(arch, pretrained=False, nl_type=nl_type, nl_nums=nl_nums,
+        cnn = resnet.model_hub(arch, char_class, pretrained=False, nl_type=nl_type, nl_nums=nl_nums,
                                pool_size=pool_size)
-        cnn._modules['fc'] = torch.nn.Linear(in_features=2048,
-                                             out_features=char_class)
+
         cnn = load_model(cnn, model_path)
         images = [f.name for f in os.scandir(img_dir) if f.name.endswith(".jpg")]
         cnn.eval()
-        get_table_row(cnn, images, img_dir, res_dir, out_dir)
-        create_table(db_path, "DETECTION", out_dir)
+        get_table_row(cnn, images, img_dir, ocr_dir, ocr_out_dir)
+        get_table_row(cnn, images, img_dir, rcnn_dir, rcnn_out_dir)
+        create_table(db_path, "OCR", ocr_out_dir)
+        create_table(db_path, "RCNN", rcnn_out_dir)
         create_table(db_path, "GT", gt_dir)
