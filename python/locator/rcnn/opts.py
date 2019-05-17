@@ -33,7 +33,7 @@ def parse_args():
 
     # Data input settings
     parser.add_argument('-image_size', default=1720, help='which fold to use', type=int)
-    parser.add_argument('-dtp_train', default=0, help='Whether or not to use DTP in train', type=int)
+    parser.add_argument('-dtp_train', default=1, help='Whether or not to use DTP in train', type=int)
 
     # Optimization
     parser.add_argument('-learning_rate', default=2e-4, help='learning rate to use', type=float)
@@ -52,7 +52,7 @@ def parse_args():
                         help='Test-time NMS threshold to use in the RPN', type=float)
     parser.add_argument('-max_proposals', default=-1,
                         help='Number of region proposal to use at test-time', type=int)
-    parser.add_argument('-score_nms_overlap', default=0.6,
+    parser.add_argument('-score_nms_overlap', default=0.5,
                         help='NMS overlap using box scores in postprocessing', type=float)
     parser.add_argument('-score_threshold', default=0.65,
                         help='score threshold using box scores in postprocessing', type=float)

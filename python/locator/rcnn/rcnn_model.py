@@ -9,9 +9,9 @@ from misc.apply_box_transform import ApplyBoxTransform
 from misc.box_regression_criterion import BoxRegressionCriterion
 
 
-class CtrlFNet(nn.Module):
+class RcnnNet(nn.Module):
     def __init__(self, opt, logger):
-        super(CtrlFNet, self).__init__()
+        super(RcnnNet, self).__init__()
         utils.ensureopt(opt, 'mid_box_reg_weight')
         utils.ensureopt(opt, 'mid_objectness_weight')
         utils.ensureopt(opt, 'end_box_reg_weight')

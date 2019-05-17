@@ -59,10 +59,11 @@ def create_db(images, db_file, max_shape):
 
 class RcnnDataset(Dataset):
 
-    def __init__(self, opt, use_dtp, logger, data_dir, json_name, db_file):
+    def __init__(self, opt, use_dtp, is_train, logger, data_dir, json_name, db_file):
         super(Dataset, self).__init__()
         self.use_dtp = use_dtp
         self.logger = logger
+        self.is_train = is_train
         self.parent_dir = os.path.abspath(os.path.join(data_dir, os.pardir))
         # all image data, memory for speed
         self.target_image_size = float(opt.image_size)
@@ -128,11 +129,20 @@ class RcnnDataset(Dataset):
             max_shape = np.array(images_shape).max(0)
             for datum in data:
                 try:
-                    datum['region_proposals'] = \
-                        np.load('npz/' + datum['id'].split('/')[-1].split('.')[0] + '_dtp.npz')[
-                            'regions'].tolist()
+                    if self.is_train:
+                        datum['region_proposals'] = \
+                            np.load('npz/train/' + datum['id'].split('/')[-1].split('.')[0] + '_dtp.npz')[
+                                'regions'].tolist()
+                    else:
+                        datum['region_proposals'] = \
+                            np.load('npz/test/' + datum['id'].split('/')[-1].split('.')[0] + '_dtp.npz')[
+                                'regions'].tolist()
                 except:
-                    print('npz/' + 'color_out' + datum['id'].split('/')[-1].split('.')[0] + "_dtp.npz doesn't exist!")
+                    if self.is_train:
+                        print('npz/train/' + datum['id'].split('/')[-1].split('.')[0] + "_dtp.npz doesn't exist!")
+                    else:
+                        print('npz/test/' + datum['id'].split('/')[-1].split('.')[0] + "_dtp.npz doesn't exist!")
+
             # self.filter_ground_truth_boxes(images, data)
             if not os.path.exists(os.path.join(self.parent_dir, 'cache', db_file)):
                 create_db(images, os.path.join(self.parent_dir, 'cache', db_file), max_shape)
@@ -215,7 +225,6 @@ class RcnnDataset(Dataset):
         for i, datum in enumerate(self.data):
             H, W = datum['h'], datum['w']
             scale = self.target_image_size / max(H, W)
-
             # Needed for not so tightly labeled datasets, like washington
             # move boxes to close to edges
             # if box_type == 'region_proposals':
@@ -249,9 +258,10 @@ class RcnnDataset(Dataset):
         img = self.transforms(img)
         gt_boxes = self.data[ind]['gt_boxes']
         out = (img, gt_boxes)
+        H, W = self.data[ind]['h'], self.data[ind]['w']
         if self.use_dtp:
             proposals = self.data[ind]['region_proposals']
-            out += (proposals,)
+            out += (proposals, (H, W))
         return out
 
 

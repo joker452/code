@@ -6,7 +6,7 @@ import easydict
 import datetime
 import numpy as np
 import torch.optim as optim
-import ctrlfnet_model as ctrlf
+import rcnn_model as ctrlf
 from evaluate import mAP
 from opts import parse_args
 from PIL import Image, ImageDraw
@@ -14,28 +14,17 @@ from torch.utils.data import DataLoader
 from misc.rcnn_dataset import RcnnDataset, RandomSampler
 
 
-def test(img, boxes, i):
-    img += 34.42953730765813
-    img = img * 255
-    img = img.astype(np.uint8)
-    im = Image.fromarray(img)
-    d = ImageDraw.Draw(im)
-    for box in boxes:
-        xc, yc, w, h = box[0], box[1], box[2], box[3]
-        d.rectangle([xc - w // 2, yc - h // 2, xc + w // 2, yc + h // 2], outline='white')
-    im.save("/data2/dengbowen/work/samples/ctrlf-out/predict{}.png".format(i))
-
-
 def train():
-    logger_name = "ctrlf-locator"
+    logger_name = "rcnn-locator"
     logger = logging.getLogger(logger_name)
     opt = parse_args()
     logger.info("load trainset")
     # trailing slash is necessary!
-    trainset = RcnnDataset(opt, opt.dtp_train, logger, '/mnt/data1/dengbowen/ctrlf/dataset/train/', 'difangzhi.json',
-                           'difangzhi.h5')
+    trainset = RcnnDataset(opt, opt.dtp_train, True, logger, '/mnt/data1/dengbowen/python/locator/rcnn/dataset/train/',
+                           'difangzhi.json', 'difangzhi.h5')
     logger.info("load testset")
-    testset = RcnnDataset(opt, opt.dtp_test, logger, '/mnt/data1/dengbowen/ctrlf/dataset/test/', 'test.json', 'test.h5')
+    testset = RcnnDataset(opt, opt.dtp_test, False, logger, '/mnt/data1/dengbowen/python/locator/rcnn/dataset/test/',
+                          'test.json', 'test.h5')
     logger.info("finish loading dataset")
 
     # all have been resized!
@@ -46,11 +35,11 @@ def train():
     testloader = DataLoader(testset, batch_size=1, shuffle=False, pin_memory=True)
 
     # initialize the Ctrl-F-Net model object
-    model = ctrlf.CtrlFNet(opt, logger)
+    model = rcnn.RcnnNet(opt, logger)
 
     show = not opt.quiet
     if show:
-        logger.info("number of parameters in ctrlfnet:{}".format(model.num_parameters()))
+        logger.info("number of parameters in rcnn-net:{}".format(model.num_parameters()))
 
     if not torch.cuda.is_available():
         logger.warning('Could not find CUDA environment, using CPU mode')
@@ -86,8 +75,8 @@ def train():
         except Exception:
             logger.critical("cannot load model")
 
-    if not os.path.exists('checkpoints/ctrlfnet/'):
-        os.makedirs('checkpoints/ctrlfnet/')
+    if not os.path.exists('checkpoints/rcnn/'):
+        os.makedirs('checkpoints/rcnn/')
     if not os.path.exists('./log/'):
         os.makedirs('./log/')
     if not os.path.exists('./out/dtp'):
@@ -134,7 +123,7 @@ def train():
                 f.write("-" * 30 + "\n")
             if re[1] > 0.8 and pr[1] > 0.8:
                 torch.save(model.state_dict(),
-                           os.path.join('./checkpoints/ctrlfnet',
+                           os.path.join('./checkpoints/rcnn',
                                         datetime.datetime.now().strftime("%m_%d_%H:%M") +
                                         'rcnn_{:.2f}_{:.2f}.pth.tar'.format(re[1], pr[1])))
         it += 1

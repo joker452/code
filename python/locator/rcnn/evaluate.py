@@ -24,7 +24,11 @@ def extract_features(model, loader, args):
             (img, gt_boxes) = data
             input = (img, gt_boxes[0].float())
         if args.max_proposals == -1:
-            model.setTestArgs({'rpn_nms_thresh': args.rpn_nms_thresh, 'max_proposals': external_proposals.size(1)})
+            if args.use_external_proposals:
+                model.setTestArgs({'rpn_nms_thresh': args.rpn_nms_thresh, 'max_proposals': external_proposals.size(1)})
+            else:
+                model.setTestArgs({'rpn_nms_thresh': args.rpn_nms_thresh,
+                                   'max_proposals': 1000})
         else:
             model.setTestArgs({'rpn_nms_thresh': args.rpn_nms_thresh, 'max_proposals': args.max_proposals})
 
