@@ -37,7 +37,7 @@ def parse_args():
 
     # Optimization
     parser.add_argument('-learning_rate', default=2e-4, help='learning rate to use', type=float)
-    parser.add_argument('-reduce_lr_every', default=10000, help='reduce learning rate every x iterations', type=int)
+    parser.add_argument('-reduce_lr_every', default=12000, help='reduce learning rate every x iterations', type=int)
     parser.add_argument('-beta1', default=0.9, help='beta1 for adam', type=float)
     parser.add_argument('-beta2', default=0.999, help='beta2 for adam', type=float)
     parser.add_argument('-epsilon', default=1e-8, help='epsilon for smoothing', type=float)

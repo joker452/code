@@ -44,7 +44,7 @@ def train():
                         the loss values. Default: 500')
     parser.add_argument('--pretrained', action='store_true', help='Whether to use pretrain or not')
     parser.add_argument('--model_path', help='path to pretrain model')
-    parser.add_argument('--max_epoch', '-epoch', type=int, default=100, help='The number of max epoch while training. \
+    parser.add_argument('--max_epoch', '-epoch', type=int, default=15, help='The number of max epoch while training. \
                         Default: 100')
     parser.add_argument('--batch_size', '-bs', type=int, default=64, help='The batch size of the data. Default: 128')
     parser.add_argument('--weight_decay', '-wd', type=float, default=0.00005, help='The weight decay for Adam \

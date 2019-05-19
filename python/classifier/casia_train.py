@@ -42,8 +42,6 @@ def train():
     parser.add_argument('--eps', type=float, default=1e-8, help='The epsilon for Adam. Default: 1e-8')
     parser.add_argument('--display', type=int, default=200, help='The number of iterations after which to display \
                         the loss values. Default: 500')
-    parser.add_argument('--max_epoch', '-epoch', type=int, default=100, help='The number of max epoch while training. \
-                        Default: 100')
     parser.add_argument('--batch_size', '-is', type=int, default=64, help='The batch size of the data. Default: 128')
     parser.add_argument('--weight_decay', '-wd', type=float, default=0.00005, help='The weight decay for Adam \
                         Default: 0.00005')
@@ -123,7 +121,7 @@ def train():
     start_time = datetime.datetime.now().strftime("%m-%d-%H-%M")
     iteration = 0
     threshold = 80
-    for epoch in range(args.max_epoch):
+    while iteration < 9000:
         scheduler.step()
         best_accuracy = 0.0
         logger.info('Learning rate:{}'.format(optimizer.defaults['lr']))
