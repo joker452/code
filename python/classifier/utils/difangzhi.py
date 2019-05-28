@@ -1,11 +1,14 @@
 import os
 import cv2
 import sys
+import json
 import pickle
 import untangle
+
 sys.path.append('./')
 from util import mkdir, compare
 from functools import cmp_to_key
+
 
 def write_char(f, position, class_id, next_char_class, nnext_char_class):
     for pos in position:
@@ -13,17 +16,30 @@ def write_char(f, position, class_id, next_char_class, nnext_char_class):
     f.write(str(class_id) + " ")
     f.write(str(next_char_class) + " " + str(nnext_char_class) + "\n")
 
+
 def make_dataset(root_dir):
     not_wanted = ('╳', '阝', '═', '︺', '︹', '━', '', '│', '□', '○', '。', '、', '\u3000', '\ue002')
     data_dir = [f.name for f in os.scandir(root_dir) if f.is_dir() and f.name != 'out']
     page_id = 1
     out_dir = os.path.join(root_dir, "out")
+    train_dir = os.path.join(out_dir, "train")
+    test_dir = os.path.join(out_dir, "test")
     mkdir(out_dir)
+    mkdir(train_dir)
+    mkdir(test_dir)
+    with open('./difangzhi_freq.json', 'r', encoding='utf-8') as f:
+        d1 = json.load(f)
+    d2 = d1.copy()
+    for k in d2.keys():
+        d2[k] = d2[k] // 2
+        if k not in not_wanted:
+            mkdir(os.path.join(test_dir, k))
+            mkdir(os.path.join(train_dir, k))
     with open('./char2index.pkl', 'rb') as f:
         index_dict = pickle.load(f)
 
+    counter = 0
     for data in data_dir:
-        #mkdir(os.path.join(out_dir, "images"))
         img_dir = os.path.join(root_dir, data, "jpg")
         xml_dir = os.path.join(root_dir, data, "xml")
         doc_list = os.listdir(xml_dir)
@@ -73,6 +89,22 @@ def make_dataset(root_dir):
             labels.sort(key=cmp_to_key(compare))
             img = cv2.imread(os.path.join(img_dir, page_name), -1)
             cv2.imwrite(os.path.join(out_dir, '{}.jpg'.format(page_id)), img)
+            img = cv2.morphologyEx(img, 6, cv2.getStructuringElement(1, (33, 33), (16, 16)))
+            img = img.mean(2)[:, :, None]
+            img = np.where(img < 50, (0, 0, 0), (255, 255, 255)).astype(np.uint8)
+            for k in range(len(labels)):
+                position = labels[k]['coordinates']
+                label = labels[k]['text']
+                char = img[position[1]: position[3], position[0]: position[2]]
+                file_name = '{}-{}-{}.jpg'.format(data, page_name[: -4], counter)
+                counter += 1
+                if d1[label] != 1 and d2[label] > 0:
+                    d2[label] = d2[label] - 1
+                    # put it in train
+                    cv2.imwrite(os.path.join(train_dir, label, file_name), char)
+                else:
+                    cv2.imwrite(os.path.join(train_dir, label, file_name), char)
+
             with open(os.path.join(out_dir, "{}.txt".format(page_id)), "a", encoding='utf-8') as f:
                 char_num = len(labels)
                 for k in range(char_num - 2):
@@ -80,8 +112,6 @@ def make_dataset(root_dir):
                     class_id = index_dict[labels[k]['text']]
                     next_class_id = index_dict[labels[k + 1]['text']]
                     nnext_class_id = index_dict[labels[k + 2]['text']]
-                    #char = img[position[1]: position[3], position[0]: position[2]]
-                    #file_name = '{}-{}-{}.jpg'.format(data, page_name[: -4], k)
                     write_char(f, position, class_id, next_class_id, nnext_class_id)
                 # -2
                 write_char(f, labels[char_num - 2]['coordinates'],
@@ -94,5 +124,5 @@ def make_dataset(root_dir):
 
 
 if __name__ == '__main__':
-    root_dir = "c:/Users/Deng/Desktop/difangzhi"
+    root_dir = "d:/project/lunwen/data/difangzhi"
     make_dataset(root_dir)

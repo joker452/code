@@ -50,7 +50,7 @@ if __name__ == '__main__':
     with open('./gbcode3755.pkl', 'rb') as f:
         d = pickle.load(f)
     data_dir = '/data2/dengbowen/1.1'
-    number_file = '/data2/dengbowen/1.1trainlist.txt'
+    number_file = './1.1trainlist.txt'
     with open(number_file, 'r') as f:
         file_numbers = f.read().split('\n')
     image_dir = '/data2/dengbowen/character/3755images'
