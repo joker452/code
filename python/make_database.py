@@ -5,7 +5,7 @@ import torch.optim
 from models import resnet
 from functools import cmp_to_key
 from torchvision.transforms import transforms
-from classifier.utils.util import mkdir, compare, load_model, get_class
+from utils.util import mkdir, compare, load_model, get_class
 
 
 def write_char(f, x1, y1, x2, y2, cur_class, next_class, nnext_class):

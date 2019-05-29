@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 from models import resnet
 from evaluate_box import bbox_overlaps
-from classifier.utils.util import load_model, get_class
+from utils.util import load_model, get_class
 from torchvision.transforms import transforms
 
 
@@ -38,23 +38,23 @@ def AP(detection_result, gt_result):
     return ap
 
 
-def search(cursor, keywords_idx):
+def search(table_name, cursor, keywords_idx):
     char_num = len(keywords_idx)
     if char_num == 1:
         sql_command = "SELECT PAGE, LOCATION FROM {} WHERE CLASS = ? ORDER BY PAGE"
-        cursor.execute(sql_command.format("RCNN"), (keywords_idx[0],))
+        cursor.execute(sql_command.format(table_name), (keywords_idx[0],))
         detection_result = cursor.fetchall()
         cursor.execute(sql_command.format("GT"), (keywords_idx[0],))
         gt_result = cursor.fetchall()
     elif char_num == 2:
         sql_command = "SELECT PAGE, LOCATION FROM {} WHERE (CLASS, NEXT) =(?, ?) AND NEXT <> -1 ORDER BY PAGE"
-        cursor.execute(sql_command.format("RCNN"), (keywords_idx[0], keywords_idx[1]))
+        cursor.execute(sql_command.format(table_name), (keywords_idx[0], keywords_idx[1]))
         detection_result = cursor.fetchall()
         cursor.execute(sql_command.format("GT"), (keywords_idx[0], keywords_idx[1]))
         gt_result = cursor.fetchall()
     else:
         sql_command = "SELECT PAGE, LOCATION FROM {} WHERE (CLASS, NEXT, NNEXT) = (?, ?, ?) AND NEXT <> -1 ORDER BY PAGE"
-        cursor.execute(sql_command.format("RCNN"), (keywords_idx[0], keywords_idx[1], keywords_idx[2]))
+        cursor.execute(sql_command.format(table_name), (keywords_idx[0], keywords_idx[1], keywords_idx[2]))
         detection_result = cursor.fetchall()
         cursor.execute(sql_command.format("GT"), (keywords_idx[0], keywords_idx[1], keywords_idx[2]))
         gt_result = cursor.fetchall()
@@ -72,10 +72,10 @@ if __name__ == '__main__':
     # query by string
     conn = sqlite3.connect('/mnt/data1/dengbowen/python/classifier/index.db')
     cursor = conn.cursor()
-    with open('utils/index2char.pkl', 'rb') as f:
+    with open('./classifier/utils/index2char.pkl', 'rb') as f:
         index2char = pickle.load(f)
     if arg.method == 'qbs':
-        with open('utils/char2index.pkl', 'rb') as f:
+        with open('./classifier/utils/char2index.pkl', 'rb') as f:
             char2index = pickle.load(f)
         keywords_idx = arg.words
         assert len(keywords_idx) < 4, "only keyword of length up to 3 is supported!"
@@ -103,10 +103,10 @@ if __name__ == '__main__':
             keywords_idx.append(class_id)
         if arg.verbose:
             # print query keywords
-            with open('utils/index2char.pkl', 'rb') as f:
+            with open('./classifier/utils/index2char.pkl', 'rb') as f:
                 index2char = pickle.load(f)
             print(list(map(lambda x: index2char[str(x)], keywords_idx)))
-    detection_result, gt_result = search(cursor, keywords_idx)
+    detection_result, gt_result = search("RCNN", cursor, keywords_idx)
     cursor.close()
     conn.close()
     print(AP(detection_result, gt_result))
