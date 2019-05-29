@@ -4,6 +4,7 @@ import sys
 import json
 import pickle
 import untangle
+import numpy as np
 
 sys.path.append('./')
 from util import mkdir, compare
@@ -103,7 +104,7 @@ def make_dataset(root_dir):
                     # put it in train
                     cv2.imwrite(os.path.join(train_dir, label, file_name), char)
                 else:
-                    cv2.imwrite(os.path.join(train_dir, label, file_name), char)
+                    cv2.imwrite(os.path.join(test_dir, label, file_name), char)
 
             with open(os.path.join(out_dir, "{}.txt".format(page_id)), "a", encoding='utf-8') as f:
                 char_num = len(labels)
