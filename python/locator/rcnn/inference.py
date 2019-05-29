@@ -27,7 +27,6 @@ def inference():
     # all have been resized!
     testloader = DataLoader(testset, batch_size=1, shuffle=False, pin_memory=True)
 
-    # initialize the Ctrl-F-Net model object
     model = rcnn.RcnnNet(opt, logger)
 
     if not torch.cuda.is_available():

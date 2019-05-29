@@ -66,8 +66,8 @@ def train():
                                                  transforms.Compose([transforms.Resize((224, 224)),
                                                                      transforms.ToTensor()]))
     test_set = torchvision.datasets.ImageFolder("/data1/yg/chinese/cas_icdar_jpg96/",
-                                                 transforms.Compose([transforms.Resize((224, 224)),
-                                                                     transforms.ToTensor()]))
+                                                transforms.Compose([transforms.Resize((224, 224)),
+                                                                    transforms.ToTensor()]))
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=4)
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=4)
     arch = '50'
@@ -75,14 +75,14 @@ def train():
     nl_nums = 0
     pool_size = 7
     cnn = resnet.model_hub(arch,
-                             pretrained=False,
-                             nl_type=nl_type,
-                             nl_nums=nl_nums,
-                             pool_size=pool_size)
+                           pretrained=False,
+                           nl_type=nl_type,
+                           nl_nums=nl_nums,
+                           pool_size=pool_size)
 
     # change the fc layer
     cnn._modules['fc'] = torch.nn.Linear(in_features=2048,
-                                           out_features=char_class)
+                                         out_features=char_class)
 
     torch.nn.init.kaiming_normal_(cnn._modules['fc'].weight,
                                   mode='fan_out', nonlinearity='relu')
@@ -90,18 +90,18 @@ def train():
 
     # optimizer
     optimizer = torch.optim.SGD(
-            cnn.parameters(),
-            args.learning_rate,
-            momentum=0.9,
-            weight_decay=1e-4)
+        cnn.parameters(),
+        args.learning_rate,
+        momentum=0.9,
+        weight_decay=1e-4)
     writer = SummaryWriter(log_dir='runs/' + datetime.datetime.now().strftime("%m-%d-%H-%M") +
                                    optimizer.__class__.__name__ + str(args.learning_rate))
 
     # cudnn
     cudnn.benchmark = True
     # make directory for saving models
-    if not os.path.isdir('./output'):
-        os.mkdir('./output')
+    if not os.path.isdir('./output/pretrain'):
+        os.makedirs('./output/pretrain')
         logger.info("Make output directory")
     else:
         logger.info("Output directory already exists")
@@ -137,7 +137,8 @@ def train():
                 writer.add_scalar('test/top5', top5, iteration)
                 if top1 >= threshold and top1 > best_accuracy:
                     state = {'state_dict': cnn.state_dict()}
-                    torch.save(state, os.path.join('./output', '_{:s}_{:.2f}.pth.tar'.format(model_name + start_time, top1)))
+                    torch.save(state,
+                               os.path.join('./output', '_{:s}_{:.2f}.pth.tar'.format(model_name + start_time, top1)))
                     best_accuracy = top1
             image = image.to(device)
             label = label.to(device)

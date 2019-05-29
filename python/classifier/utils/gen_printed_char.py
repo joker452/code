@@ -229,13 +229,11 @@ def args_parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('--out_dir', dest='out_dir', required=True, help='dir for output images')
     parser.add_argument('--font_dir', dest='font_dir', help='font dir to to check all the fonts in it')
-    parser.add_argument('--font_path', required=True, help='path to the font file used this time')
     parser.add_argument('--width', default=None, type=int, required=True, help='width')
     parser.add_argument('--height', default=None, type=int, required=True, help='height')
     parser.add_argument('--margin', dest='margin', type=int, default=0)
     parser.add_argument('--rotate', dest='rotate', default=0, type=int, help='max rotate degree 0-45')
-    parser.add_argument('--need_aug', default=False, help='need data augmentation', action='store_true')
-    parser.add_argument('--chinese_char', '-char', dest='char', required=True, help='The chinese character for query')
+    parser.add_argument('--char', '-c', dest='char', required=True, help='The target chinese character')
     parser.add_argument('--dict_path', '-dict', dest='dict_path', help='Path to the dictionary pkl')
     args = vars(parser.parse_args())
     return args
@@ -254,37 +252,33 @@ def checkfonts(font_dir, dict_path, width, height):
     print(verified_font)
 
 
-def generate_character(character, width, height,  margin, font_path, rotate):
+def generate_character(character, width, height, margin, font_path, rotate):
     font2image = Font2Image(width, height, margin)
     image = font2image.do(font_path, character, rotate)
     return Image.fromarray(image)
 
 
 if __name__ == "__main__":
-        options = args_parse()
-        # note that margin is important to place the character in the center of the final image
-        out_dir = os.path.expanduser(options['out_dir'])
-        font_dir = options['font_dir']
-        width = options['width']
-        height = options['height']
-        margin = options['margin']
-        rotate = options['rotate']
-        need_aug = options['need_aug']
-        dict_path = options['dict_path']
-        char = options['char']
-        font_path = options['font_path']
+    options = args_parse()
+    # note that margin is important to place the character in the center of the final image
+    out_dir = os.path.expanduser(options['out_dir'])
+    font_dir = options['font_dir']
+    width = options['width']
+    height = options['height']
+    margin = options['margin']
+    rotate = options['rotate']
+    need_aug = options['need_aug']
+    dict_path = options['dict_path']
+    char = options['char']
 
-        if not os.path.isdir(out_dir):
-            os.makedirs(out_dir)
-        font_list = os.listdir(font_dir)
-        font2image = Font2Image(width, height, margin)
-        if rotate < 0:
-            roate = - rotate
-        rotate = rotate % 360
-        arg = dataAugmentation()
-        for index, font in enumerate(font_list):
-            image = font2image.do(os.path.join(font_dir, font), char, rotate)
-            cv2.imwrite(os.path.join(out_dir, '{}.png'.format(index)), image)
-
-
-
+    if not os.path.isdir(out_dir):
+        os.makedirs(out_dir)
+    font_list = os.listdir(font_dir)
+    font2image = Font2Image(width, height, margin)
+    if rotate < 0:
+        roate = - rotate
+    rotate = rotate % 360
+    arg = dataAugmentation()
+    for index, font in enumerate(font_list):
+        image = font2image.do(os.path.join(font_dir, font), char, rotate)
+        cv2.imwrite(os.path.join(out_dir, '{}.png'.format(index)), image)

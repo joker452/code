@@ -32,7 +32,6 @@ def extract_features(model, loader, args):
         else:
             model.setTestArgs({'rpn_nms_thresh': args.rpn_nms_thresh, 'max_proposals': args.max_proposals})
 
-
         # out is cpu tensor by default
         out = model.evaluate(input, args)
         outputs.append(out)
@@ -89,7 +88,6 @@ def postprocessing(features, loader, args, logger, it, thresholds):
             scores = scores[threshold_pick]
             tmp = threshold_pick.view(-1, 1).expand(threshold_pick.size(0), 4)
             proposals = proposals[tmp].view(-1, 4)
-
 
             if args.use_external_proposals:
                 rpn_proposals = rpn_proposals[tmp[:nrpn]].view(-1, 4)
@@ -151,28 +149,20 @@ def postprocessing(features, loader, args, logger, it, thresholds):
                 re[m].append(recall)
 
                 pr[m].append(precision)
-            r = rpn_proposals.cpu().numpy()
             proposals = proposals.cpu().numpy()
 
             img = img.numpy().squeeze()
             img = img + args.image_mean / 255
             img = img * 255
             img = img.astype(np.uint8)
-            im1 = img.copy()
             im = Image.fromarray(img)
-            d = ImageDraw.Draw(im)
-            for box in r:
-                x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
-                d.rectangle([x1, y1, x2, y2], outline='white')
-            im.save(os.path.join(args.out_path, "rpn", "it{}-{}.png".format(it, i)))
-            im = Image.fromarray(im1)
             d = ImageDraw.Draw(im)
             with open(os.path.join(args.out_path, 'it{}-{}.txt'.format(it, i)), 'w', encoding='utf-8') as f:
                 for box in proposals:
                     x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
                     d.rectangle([x1, y1, x2, y2], outline='white')
                     f.write(str(x1) + " " + str(y1) + " " + str(x2) + " " + str(y2) + "\n")
-            im.save(os.path.join(args.out_path, "dtp", "it{}-{}.png".format(it, i)))
+            im.save(os.path.join(args.out_path, "image", "it{}-{}.png".format(it, i)))
     for i in range(3):
         try:
             re[i] = sum(re[i]) / len(re[i])
