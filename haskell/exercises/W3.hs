@@ -49,7 +49,7 @@ mapMaybe :: (a -> Maybe b) -> [a] -> [b]
 mapMaybe _ [] = []
 mapMaybe f (x: xs) = case x' of
                             Just val -> val: mapMaybe f xs
-                            Nothing -> mapMaybe f xs
+                            Nothing  -> mapMaybe f xs
                            where x' = f x
 
 
@@ -68,7 +68,7 @@ mapMaybe f (x: xs) = case x' of
 classify :: [Either a b] -> ([a],[b])
 classify [] = ([], [])
 classify (e: es) = case e of
-                        Left a -> (a: l, r)
+                        Left a  -> (a: l, r)
                         Right b -> (l, b: r)
                        where (l, r) = classify es
 
@@ -161,14 +161,14 @@ zero = Up 0
 -- get returns the counter value
 get :: UpDown -> Int
 get ud = case ud of
-                Up a -> a
+                Up a   -> a
                 Down a -> a
 
 -- tick increases an increasing counter by one or decreases a
 -- decreasing counter by one
 tick :: UpDown -> UpDown
 tick ud = case ud of
-                Up a -> Up $ a + 1
+                Up a   -> Up $ a + 1
                 Down a -> Down $ a - 1
 
 
@@ -176,7 +176,7 @@ tick ud = case ud of
 -- vice versa
 toggle :: UpDown -> UpDown
 toggle ud = case ud of
-                    Up a -> Down a
+                    Up a   -> Down a
                     Down a -> Up a
 
 -- !!!!!
@@ -192,7 +192,7 @@ data Tree a = Leaf | Node a (Tree a) (Tree a)
 valAtRoot :: Tree a -> Maybe a
 valAtRoot t = case t of
                     Node a _ _ -> Just a
-                    Leaf -> Nothing
+                    Leaf       -> Nothing
 
 -- Ex 9: compute the size of a tree, that is, the number of Node
 -- constructors in it
@@ -200,7 +200,7 @@ valAtRoot t = case t of
 treeSize :: Tree a -> Int
 treeSize t = case t of
                     Node _ l r -> treeSize l + treeSize r + 1
-                    Leaf -> 0
+                    Leaf       -> 0
 
 -- Ex 10: get the leftmost value in the tree. The return value is
 -- Maybe a because the tree might be empty.
@@ -220,8 +220,8 @@ treeSize t = case t of
 leftest :: Tree a -> Maybe a
 leftest t = case t of
                     Node a Leaf r -> Just a
-                    Node _ l _ -> leftest l
-                    Leaf -> Nothing
+                    Node _ l _    -> leftest l
+                    Leaf          -> Nothing
 
 
 
@@ -234,7 +234,9 @@ leftest t = case t of
 --   ==> (Node 2 (Node 3 Leaf Leaf) (Node 4 Leaf Leaf))
 
 mapTree :: (a -> b) -> Tree a -> Tree b
-mapTree f t = undefined
+mapTree f t = case t of
+                    Leaf       -> Leaf
+                    Node a l r -> Node (f a) (mapTree f l) (mapTree f r)
 
 -- Ex 12: insert the given value into the leftmost possible place. You
 -- need to return a new tree since the function is pure.
@@ -259,7 +261,9 @@ mapTree f t = undefined
 
 
 insertL :: a -> Tree a -> Tree a
-insertL x t = undefined
+insertL x t = case t of
+                    Leaf       -> Node x Leaf Leaf
+                    Node a l r -> Node  a (insertL x l) r
 
 -- Ex 13: implement the function measure, that takes a tree and
 -- returns a tree with the same shape, but with the value at every
@@ -284,9 +288,20 @@ insertL x t = undefined
 --                         (Node 2 Leaf
 --                                 (Node 1 Leaf Leaf)))
 
+getVal :: Tree Int -> Int
+getVal t = case t of
+                Leaf -> 0
+                Node a _ _ -> a
 
 measure :: Tree a -> Tree Int
-measure t = undefined
+measure t = case t of
+                    Leaf       -> Leaf
+                    Node a l r -> Node (ml + mr + 1) tl tr
+                                where tl = measure l
+                                      tr = measure r
+                                      ml = getVal tl
+                                      mr = getVal tr
+
 
 -- Ex 14: the standard library function
 --   foldr :: (a -> b -> b) -> b -> [a] -> b
@@ -301,17 +316,18 @@ measure t = undefined
 -- DON'T change the definitions of mysum and mylength, only implement
 -- sumf and lengtf appropriately.
 
+
 mysum :: [Int] -> Int
 mysum is = foldr sumf 0 is
 
 sumf :: Int -> Int -> Int
-sumf x y = undefined
+sumf x y = x + y
 
 mylength :: [a] -> Int
 mylength xs = foldr lengthf 0 xs
 
 lengthf :: a -> Int -> Int
-lengthf x y = undefined
+lengthf _ y = y + 1
 
 -- Ex 15: implement the function foldTree that works like foldr, but
 -- for Trees.
@@ -330,21 +346,23 @@ lengthf x y = undefined
 -- and treeLeaves below work correctly.
 
 sumt :: Int -> Int -> Int -> Int
-sumt x y z = x+y+z
+sumt x y z = x + y + z
 
 -- Sum of numbers in the tree
 treeSum :: Tree Int -> Int
 treeSum t = foldTree sumt 0 t
 
 leaft :: a -> Int -> Int -> Int
-leaft x y z = y+z
+leaft x y z = y + z
 
 -- Number of leaves in the tree
 treeLeaves :: Tree a -> Int
 treeLeaves t = foldTree leaft 1 t
 
 foldTree :: (a -> b -> b -> b) -> b -> Tree a -> b
-foldTree f x t = undefined
+foldTree f x t = case t of
+                        Leaf       -> x
+                        Node a l r -> f a (foldTree f x l) (foldTree f x r)
 
 -- Ex 16: You'll find a Color datatype below. It has the three basic
 -- colours Red, Green and Blue, and two color transformations, Mix and
@@ -377,5 +395,12 @@ foldTree f x t = undefined
 data Color = Red | Green | Blue | Mix Color Color | Darken Double Color
   deriving Show
 
+sumHelper :: Double -> Double -> Double
+sumHelper x y = if x + y > 1.0 then 1.0 else x + y
 rgb :: Color -> [Double]
-rgb col = undefined
+rgb col = case col of
+                    Red        -> [1, 0, 0]
+                    Green      -> [0, 1, 0]
+                    Blue       -> [0, 0, 1]
+                    Darken x c -> map (* (1 - x)) (rgb c)
+                    Mix c1 c2  -> zipWith sumHelper (rgb c1) (rgb c2)
