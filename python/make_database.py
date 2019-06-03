@@ -2,7 +2,7 @@ import os
 import cv2
 import sqlite3
 import torch.optim
-from models import resnet
+from classifier.models import resnet
 from functools import cmp_to_key
 from torchvision.transforms import transforms
 from utils.util import mkdir, compare, load_model, get_class
