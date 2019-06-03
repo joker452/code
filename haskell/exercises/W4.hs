@@ -1,9 +1,9 @@
 module W4 where
 
-import Control.Monad
-import Data.List
-import Data.IORef
-import System.IO
+import           Control.Monad
+import           Data.IORef
+import           Data.List
+import           System.IO
 
 -- Week 4:
 --   * The IO type
@@ -23,13 +23,15 @@ import System.IO
 -- first line should be HELLO and the second one WORLD
 
 hello :: IO ()
-hello = undefined
+hello = do
+        putStrLn "HELLO"
+        putStrLn "WORLD"
 
 -- Ex 2: define the IO operation greet that takes a name as an
 -- argument and prints a line "HELLO name".
 
 greet :: String -> IO ()
-greet name = undefined
+greet name = putStrLn $ "HELLO " ++ name
 
 
 -- Ex 3: define the IO operation greet2 that reads a name from the
@@ -39,13 +41,22 @@ greet name = undefined
 -- Try to use the greet operation in your solution.
 
 greet2 :: IO ()
-greet2 = undefined
+greet2 = do
+         name <- getLine
+         putStrLn $ "HELLO " ++ name
 
 -- Ex 4: define the IO operation readWords n which reads n lines from
 -- the user and returns them in alphabetical order.
 
 readWords :: Int -> IO [String]
-readWords n = undefined
+readWords 0 = return []
+
+readWords n = do
+              s <- getLine
+              ss <- readWords (n - 1)
+              return $ sort (s: ss)
+
+
 
 -- Ex 5: define the IO operation readUntil f, which reads lines from
 -- the user and returns them as a list. Reading is stopped when f
@@ -53,7 +64,13 @@ readWords n = undefined
 -- returned.)
 
 readUntil :: (String -> Bool) -> IO [String]
-readUntil f = undefined
+readUntil f = do
+              s <- getLine
+              if f s
+                 then return []
+                 else do ss <- readUntil f
+                         return $ s: ss
+
 
 -- Ex 6: given n, print the n first fibonacci numbers, one per line
 
