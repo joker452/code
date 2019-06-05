@@ -13,3 +13,5 @@ __pycache__/
 .classpath
 python/charcnn/output/
 wireshark/**/*.swp
+.sml#
+*~
