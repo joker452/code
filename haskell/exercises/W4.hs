@@ -73,16 +73,35 @@ readUntil f = do
 
 
 -- Ex 6: given n, print the n first fibonacci numbers, one per line
+fibsHelper :: Int -> IO (Int, Int)
+fibsHelper n | n == 0 = do
+                        putStrLn "0"
+                        return (0, 1)
+             | otherwise = do
+                           (a, b) <- fibsHelper (n - 1)
+                           print b
+                           return  (b, a + b)
 
 printFibs :: Int -> IO ()
-printFibs n = undefined
+printFibs n = do
+              _ <- fibsHelper n
+              return ()
 
 -- Ex 7: isums n should read n numbers from the user and return their
 -- sum. Additionally, after each read number, the sum up to that
 -- number should be printed.
 
 isums :: Int -> IO Int
-isums n = undefined
+isums 0 = do
+          s <- getLine
+          putStrLn s
+          return (read s :: Int)
+isums n = do
+          acc <- isums (n - 1)
+          s <- getLine
+          let acc' = (read s :: Int) + acc
+          print acc'
+          return acc'
 
 -- Ex 8: when is a useful function, but its first argument has type
 -- Bool. Write a function that behaves similarly but the first
