@@ -127,6 +127,8 @@ whenM cond op = undefined
 while :: IO Bool -> IO () -> IO ()
 while cond op = undefined
 
+
+
 -- Ex 10: given a string and an IO operation, print the string, run
 -- the IO operation, print the string again, and finally return what
 -- the operation returned.
