@@ -73,20 +73,26 @@ readUntil f = do
 
 
 -- Ex 6: given n, print the n first fibonacci numbers, one per line
-fibsHelper :: (Int, Int) -> Int -> IO ()
-fibsHelper (a, b) n = if n >= 1 then do
-                                     print b
-                                     fibsHelper (b, a + b) (n - 1)
-                                else return ()
+fibsHelper :: Int -> IO (Int, Int)
+fibsHelper n | n == 0 = do
+                        putStrLn "0"
+                        return (0, 1)
+             | otherwise = do
+                           (a, b) <- fibsHelper (n - 1)
+                           print b
+                           return  (b, a + b)
 
 printFibs :: Int -> IO ()
-printFibs n = if n == 0 then print 1 else fibsHelper (0, 1) n
+printFibs n = do
+              _ <- fibsHelper n
+              return ()
+
 -- Ex 7: isums n should read n numbers from the user and return their
 -- sum. Additionally, after each read number, the sum up to that
 -- number should be printed.
 
 isums :: Int -> IO Int
-isums 1 = do
+isums 0 = do
           s <- getLine
           putStrLn s
           return (read s :: Int)
@@ -268,21 +274,25 @@ dropLines h n = do
                                           _ <- hGetLine h
                                           dropLines h (n - 1))
 
-fetchLines :: Handle -> [Int] -> Int -> IO [String]
-fetchLines _ [] _ = return [""]
-fetchLines h (n: ns) pos = do
-                           dropLines h (n - pos - 1)
-                           end <- hIsEOF h
-                           if not end then do
-                                           l <- hGetLine h
-                                           ls <- fetchLines h ns n
-                                           return $ l: ls
-                                      else return [""]
 
 hFetchLines :: Handle -> [Int] -> IO [String]
-hFetchLines h ns = do
-                   end <- hIsEOF h
-                   if not end then fetchLines h ns 0 else return [""]
+hFetchLines _ [] = return [""]
+hFetchLines h [n] = do
+                    dropLines h (n - 1)
+                    end <- hIsEOF h
+                    if not end then do
+                                     l <- hGetLine h
+                                     return [l]
+                                     else return [""]
+
+hFetchLines h (n: ns) = do
+                     end <- hIsEOF h
+                     if not end then do
+                                     dropLines h (n - 1)
+                                     l <- hGetLine h
+                                     ls <- hFetchLines h (head ns - n: tail ns)
+                                     return $ l: ls
+                     else return [""]
 -- Ex 17: CSV is a file format that stores a two-dimensional array of
 -- values in a file. Each row of the file is a row of the array. Each
 -- row of the file consists of values on that row separated with the ,

@@ -19,7 +19,7 @@ tests = [[ex1_hello]
         ,[ex3_greet2]
         ,[ex4_readWords]
         ,[ex5_readUntil]
---        ,[ex6_printFibs]
+        ,[ex6_printFibs]
         ,[ex7_isums]
         ,[ex8_whenM_True, ex8_whenM_False]
         ,[ex9_while]
@@ -67,7 +67,7 @@ ex5_readUntil = monadicIO $ do
     ret === words
 
 ex6_printFibs = monadicIO $ do
-  n <- pick $ choose (0,10)
+  n <- pick $ choose (0,40)
   (text,_) <- runc' $ printFibs n
   stop_ . counterexample ("printFibs "++show n) $
     text === unlines (map show (take n fibs))
