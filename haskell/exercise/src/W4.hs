@@ -80,7 +80,7 @@ fibsHelper (a, b) n = if n >= 1 then do
                                 else return ()
 
 printFibs :: Int -> IO ()
-printFibs n = if n == 0 then print 1 else fibsHelper (0, 1) n
+printFibs = fibsHelper (0, 1)
 -- Ex 7: isums n should read n numbers from the user and return their
 -- sum. Additionally, after each read number, the sum up to that
 -- number should be printed.
