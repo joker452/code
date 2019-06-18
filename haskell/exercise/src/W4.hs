@@ -74,10 +74,9 @@ readUntil f = do
 
 -- Ex 6: given n, print the n first fibonacci numbers, one per line
 fibsHelper :: (Int, Int) -> Int -> IO ()
-fibsHelper (a, b) n = if n >= 1 then do
+fibsHelper (a, b) n = when (n >= 1) (do
                                      print b
-                                     fibsHelper (b, a + b) (n - 1)
-                                else return ()
+                                     fibsHelper (b, a + b) (n - 1))
 
 printFibs :: Int -> IO ()
 printFibs = fibsHelper (0, 1)
@@ -295,9 +294,23 @@ hFetchLines h ns = do
 -- quoting. You can assume each , character starts a new field.
 --
 -- NB! The lines might have different numbers of elements.
+wordsWhen     :: (Char -> Bool) -> String -> [String]
+wordsWhen p s =  case dropWhile p s of
+                      "" -> []
+                      s' -> w : wordsWhen p s''
+                            where (w, s'') = break p s'
+processCSV :: Handle -> IO [[String]]
+processCSV h = do
+               end <- hIsEOF h
+               if not end then do
+                                l <- hGetLine h
+                                ls <- processCSV h
+                                return $ wordsWhen (== ',') l: ls
+                           else
+                                return []
 
 readCSV :: FilePath -> IO [[String]]
-readCSV path = undefined
+readCSV path = withFile path ReadMode processCSV
 
 -- Ex 18: your task is to compare two files, a and b. The files should
 -- have the same contents, but if lines at index i differ from each
@@ -338,8 +351,25 @@ readCSV path = undefined
 -- the differing lines. A suitable type could be
 -- [String] -> [String] -> [String].
 
+printDifferent :: Handle -> Handle -> IO ()
+printDifferent h1 h2 = do
+                       end <- hIsEOF h1
+                       unless end  (do
+                                       l1 <- hGetLine h1
+                                       l2 <- hGetLine h2
+                                       if l1 /= l2 then do
+                                                        putStrLn $ "< " ++ l1
+                                                        putStrLn $ "> " ++ l2
+                                                        printDifferent h1 h2
+                                                   else printDifferent h1 h2)
+
 compareFiles :: FilePath -> FilePath -> IO ()
-compareFiles a b = undefined
+compareFiles a b = do
+                   h1 <- openFile a ReadMode
+                   h2 <- openFile b ReadMode
+                   printDifferent h1 h2
+                   hClose h1
+                   hClose h2
 
 -- Ex 19: In this exercise we see how a program can be split into a
 -- pure part that does all of the work, and a simple IO wrapper that
@@ -367,4 +397,8 @@ compareFiles a b = undefined
 --
 
 interact' :: ((String,st) -> (Bool,String,st)) -> st -> IO st
-interact' f state = undefined
+interact' f state = do
+                    l <- getLine
+                    let (continue, str, state') = f (l, state)
+                    putStr str
+                    if continue then interact' f state' else return state'
