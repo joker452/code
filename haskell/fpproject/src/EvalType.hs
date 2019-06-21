@@ -72,44 +72,37 @@ eval (EIf e1 e2 e3) = do t1 <- eval e1
                          if t1 == TBool && t2 == t3 then return t2 else lift Nothing
 eval (ELambda (pn, pt) e) = do context <- get
                                let oldMap = getContext context
-                                   oldType = M.lookup pn oldMap
                                    newContext = Context $ M.insert pn pt oldMap
                                put newContext
                                rt <- eval e
-                               put $ Context (case oldType of Just t -> M.insert pn t oldMap
-                                                              Nothing -> M.delete pn oldMap) 
+                               put context
                                return $ TArrow pt rt 
                                
 eval (ELet (n, e1) e2) =  do t1 <- eval e1
                              context <- get
                              let oldMap = getContext context
-                                 oldType = M.lookup n oldMap
                                  newContext = Context $ M.insert n t1 oldMap
                              put newContext
                              t2 <- eval e2
-                             put $ Context (case oldType of Just t -> M.insert n t oldMap
-                                                            Nothing -> M.delete n oldMap) 
+                             put context
                              return t2
                              
 eval (ELetRec f (x, tx) (e1, ty) e2) = do context <- get
                                           let oldMap = getContext context
-                                              oldType = M.lookup f oldMap
                                               newContext = Context $ M.insert f (TArrow tx ty) oldMap
                                           put newContext
                                           tLambda <- eval $ ELambda (x, tx) e1
-                                          if tLambda == TArrow tx ty then do rt <- eval e2
-                                                                             put $ Context (case oldType of Just t -> M.insert f t oldMap
-                                                                                                            Nothing -> M.delete f oldMap) 
-                                                                             return rt
-                                                                     else do put $ Context (case oldType of Just t -> M.insert f t oldMap
-                                                                                                            Nothing -> M.delete f oldMap) 
-                                                                             lift Nothing
+                                          if tLambda == TArrow tx ty then do t <- eval e2
+                                                                             put context
+                                                                             return t
+                                                                          else do put context
+                                                                                  lift Nothing
+                                                                         
 
 eval (EVar n) = do context <- get
                    let oldMap = getContext context 
                        t = M.lookup n oldMap
-                   (case t of Just t -> return t
-                              Nothing -> lift Nothing)
+                   lift t
 eval (EApply e1 e2) = do tArrow <- eval e1
                          pt <- eval e2
                          (case tArrow of TArrow t0 t1 -> if t0 == pt then return t1 else lift Nothing

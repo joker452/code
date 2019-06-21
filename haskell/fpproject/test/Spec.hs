@@ -33,8 +33,8 @@ mkTestSuite n es = testGroup n $ es >>= mkTestCase
 
 testTasks :: [TestTree]
 testTasks =
-    -- [ mkTestSuite "simple"  simple
-    [ mkTestSuite "complex" complex
+    [ mkTestSuite "simple"  simple
+     ,mkTestSuite "complex" complex
     -- , mkTestSuite "adt"     adt
     ]
 

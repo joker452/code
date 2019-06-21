@@ -20,3 +20,10 @@ let three = succ two in
 let five = plus two three in 
 let six = mult two three in 
 six f 0 + five f 0
+
+
+a = let zero = \f -> \x -> x in
+                               let succ = \n -> \f -> \x -> f (n f x) in
+                                  let f = \x -> x + 1 in
+                                      let one = succ zero in
+                                          one f 1 + one f 1
