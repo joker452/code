@@ -39,7 +39,10 @@ packages:
 # (e.g., acme-missiles-0.3)
 extra-deps: 
 - haskell-dap-0.0.13.0@sha256:1bf5faf30b4b5e1e12576a3c52368b16bdaec2d57538c5b8544cede12b4216f9
-
+- conduit-1.2.13.1@sha256:afd4db7fe66ae7af3d418e1a932384a8dee08df2f6299cca80e53ba964ce1228
+- conduit-extra-1.1.17@sha256:dfa0d00dc11a8a4c3fdff15374c378ee34c25a2255b52194aa1ea3c1f1a63fd7
+- resourcet-1.1.11@sha256:096a3db6774a728bbe264e3e25c4e40d60e527ebd4b90c0b311deaa8d4cf4f27
+- streaming-commons-0.1.19@sha256:3a02f84578f75eac1425dca877f8d697b68d379a21970c1dad96196620404803
 # Override default flag values for local packages and extra-deps
 # flags: {}
 

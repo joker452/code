@@ -11,24 +11,20 @@ data Context = Context { getContext :: M.Map String Type }
   deriving (Show, Eq)
 
 type ContextState a = StateT Context Maybe a
-isBool :: Expr -> ContextState Type
-isBool e = do
-  et <- eval e
-  case et of
-    TBool -> return TBool
-    _ -> lift Nothing
+
 
 
 eval :: Expr -> ContextState Type
 eval (EBoolLit _) = return TBool
 eval (EIntLit _) =  return TInt
 eval (ECharLit _) = return TChar
-eval (ENot e) = isBool e >> return TBool
-eval (EAnd e1 e2) = do t1 <- isBool e1
-                       t2 <- isBool e2
+eval (ENot e) = do t <- eval e
+                   if t == TBool then return TBool else lift Nothing
+eval (EAnd e1 e2) = do t1 <- eval e1
+                       t2 <- eval e2
                        if t1 == TBool && t2 == TBool then return TBool else lift Nothing
-eval (EOr e1 e2) = do t1 <- isBool e1
-                      t2 <- isBool e2
+eval (EOr e1 e2) = do t1 <- eval e1
+                      t2 <- eval e2
                       if t1 == TBool && t2 == TBool then return TBool else lift Nothing
 eval (EAdd e1 e2) = do t1 <- eval e1
                        t2 <- eval e2
@@ -70,32 +66,36 @@ eval (EIf e1 e2 e3) = do t1 <- eval e1
                          t2 <- eval e2
                          t3 <- eval e3
                          if t1 == TBool && t2 == t3 then return t2 else lift Nothing
-eval (ELambda (pn, pt) e) = do context <- get
-                               let oldMap = getContext context
+-- before check the type of function body, 
+-- we need to add the parameter type to the context and restore afterwards                     
+eval (ELambda (pn, pt) e) = do oldContext <- get
+                               let oldMap = getContext oldContext
                                    newContext = Context $ M.insert pn pt oldMap
                                put newContext
                                rt <- eval e
-                               put context
+                               put oldContext
                                return $ TArrow pt rt 
-                               
+-- same as above, need to add bind type first and restore afterwards                               
 eval (ELet (n, e1) e2) =  do t1 <- eval e1
-                             context <- get
-                             let oldMap = getContext context
+                             oldContext <- get
+                             let oldMap = getContext oldContext
                                  newContext = Context $ M.insert n t1 oldMap
                              put newContext
                              t2 <- eval e2
-                             put context
+                             put oldContext
                              return t2
-                             
-eval (ELetRec f (x, tx) (e1, ty) e2) = do context <- get
-                                          let oldMap = getContext context
+-- similar to above, note that since function binding may be recursive
+-- we need to add the declared function type before actually check the type
+-- the actual type should match the declared one                              
+eval (ELetRec f (x, tx) (e1, ty) e2) = do oldContext <- get
+                                          let oldMap = getContext oldContext
                                               newContext = Context $ M.insert f (TArrow tx ty) oldMap
                                           put newContext
                                           tLambda <- eval $ ELambda (x, tx) e1
                                           if tLambda == TArrow tx ty then do t <- eval e2
-                                                                             put context
+                                                                             put oldContext
                                                                              return t
-                                                                          else do put context
+                                                                          else do put oldContext
                                                                                   lift Nothing
                                                                          
 
@@ -103,14 +103,11 @@ eval (EVar n) = do context <- get
                    let oldMap = getContext context 
                        t = M.lookup n oldMap
                    lift t
+-- paramter type should match argument type
 eval (EApply e1 e2) = do tArrow <- eval e1
                          pt <- eval e2
                          (case tArrow of TArrow t0 t1 -> if t0 == pt then return t1 else lift Nothing
-                                         _ -> lift Nothing)
-                                       
- 
-                               
-                               
+                                         _ -> lift Nothing)                  
 -- ... more
 eval _ = undefined
 

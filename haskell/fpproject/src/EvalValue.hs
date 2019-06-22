@@ -19,23 +19,15 @@ data Context = Context { getContext :: M.Map String Value } deriving (Show, Eq)
 
 type ContextState a = StateT Context Maybe a
 
-gg :: Value -> String
-gg (VClosure _ s _) = s
-getBool :: Expr -> ContextState Bool
-getBool e = do
-  ev <- eval e
-  case ev of
-    VBool b -> return b
-    _ -> lift Nothing
-
 eval :: Expr -> ContextState Value
 eval (EBoolLit b) = return $ VBool b
 eval (EIntLit i) = return $ VInt i
 eval (ECharLit c) = return $ VChar c
-eval (ENot e) = getBool e >>= \b -> return (VBool $ not b)
-eval (EAnd e1 e2) = do b <- getBool e1
+eval (ENot e) = do (VBool b) <- eval e
+                   return (VBool $ not b)
+eval (EAnd e1 e2) = do (VBool b) <- eval e1
                        if b then eval e2 else return (VBool False)
-eval (EOr e1 e2) = do b <- getBool e1
+eval (EOr e1 e2) = do (VBool b) <- eval e1
                       if not b then eval e2 else return (VBool True)
 eval (EAdd e1 e2) = do (VInt i1) <- eval e1
                        (VInt i2) <- eval e2
@@ -89,46 +81,53 @@ eval (EIf e1 e2 e3) = do (VBool b) <- eval e1
 
 eval (ELambda (pn, _) e) = do context <- get
                               return $ VClosure context pn e
-eval (ELet (n, e1) e2) = do context <- get
+-- the binding is eval eagerly
+-- add binding value to context first and restore afterwards
+eval (ELet (n, e1) e2) = do oldContext <- get
                             v1 <- eval e1
-                            let oldMap = getContext context
+                            let oldMap = getContext oldContext
                                 newContext = Context $ M.insert n v1 oldMap
-                            -- traceM ("in ELet " ++ n ++ show (toList oldMap))
                             put newContext
                             v <- eval e2
-                            put context
+                            put oldContext
                             return v
-eval (ELetRec f (x, tx) (e1, ty) e2)  = do context <- get
-                                           let oldMap = getContext context
-                                               newContext = Context $ M.insert f (VFun f context x e1) oldMap
+-- note that since function binding may be recursive
+-- and when function is applied to expr, the context under which it's evaluated
+-- is the one when it's defined, i.e., the function binding isn't included
+-- so we need to add the biding manually every time before evaluate the recursive function
+-- for this puporse, an additional function name variable is saved
+eval (ELetRec f (x, tx) (e1, ty) e2)  = do oldContext <- get
+                                           let oldMap = getContext oldContext
+                                               newContext = Context $ M.insert f (VFun f oldContext x e1) oldMap
                                            put newContext
                                            v <- eval e2
-                                           put context
+                                           put oldContext
                                            return v            
 eval (EVar n) = do oldContext <- get
                    let oldMap = getContext oldContext
                        v = M.lookup n oldMap
                    lift v
 
-
+-- call by value
+-- if it' not a recursive function, simply add the parameter value before eval body
+-- otherwise the function binding itself should also be added
+-- note union is left-biased, so the new bindng should come first to get correct result
+-- when there is shadowing
 eval (EApply e1 e2) = do f <- eval e1
-                        --  traceM("f " ++ show f)
                          v2 <- eval e2
-                        --  traceM("v2 " ++ show v2)
-                         newContext <- get
-                         (case f of  (VClosure oldContext pn e1') -> do let oldMap = getContext oldContext
-                                                                            oldContext' = Context $ M.insert pn v2 oldMap
-                                                                        put oldContext'
-                                                                        -- traceM ("body " ++ show e1')
-                                                                        v <- eval e1'
-                                                                        put newContext
-                                                                        return v
-                                     (VFun f' oldContext pn e1') -> do let oldMap = getContext oldContext
-                                                                           oldContext' = Context $ M.union (M.fromList [(pn, v2), (f', f)]) oldMap
-                                                                       put oldContext'
-                                                                       v <- eval e1'
-                                                                       put newContext
-                                                                       return v
+                         oldContext <- get
+                         (case f of  (VClosure ctx pn body) -> do let oldMap = getContext ctx
+                                                                      newContext = Context $ M.insert pn v2 oldMap
+                                                                  put newContext
+                                                                  v <- eval body
+                                                                  put oldContext
+                                                                  return v
+                                     (VFun name ctx pn body) -> do let oldMap = getContext ctx
+                                                                       newContext = Context $ M.union (M.fromList [(pn, v2), (name, f)]) oldMap
+                                                                   put newContext
+                                                                   v <- eval body
+                                                                   put oldContext
+                                                                   return v
                                      _ -> lift Nothing)
 
 
@@ -148,14 +147,3 @@ evalValue p = case evalProgram p of
   Just (VInt i) -> RInt i
   Just (VChar c) -> RChar c
   _ -> RInvalid
-
-                  --  (case v of Just v' -> case v' of (VClosure context n e) -> do put context
-                  --                                                                traceM("In EVar context is " ++ show (Prelude.map fst (toList $ getContext context)))
-                  --                                                                traceM("e " ++ show e)
-                  --                                                                vFinal <- eval $ EApply e
-                  --                                                                traceM("vFinal " ++ show vFinal)
-                  --                                                                put oldContext
-                  --                                                                return vFinal
-                                                    
-                  --                                   _ -> return v'
-                  --             Nothing -> lift Nothing)
