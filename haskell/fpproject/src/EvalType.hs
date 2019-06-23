@@ -2,10 +2,10 @@
 module EvalType where 
 
 import AST
-import Data.Map.Strict as M
 import Control.Monad.State
-import Debug.Trace
 import Data.Foldable as F
+import Data.Map.Strict as M
+
 
 
 
@@ -34,7 +34,6 @@ matchPatterns [p] [t] ctors bindMap = do let (pt, newMap) = evalPattern p t ctor
                                          if t' == t then Just (M.union newMap bindMap) else Nothing
 matchPatterns (p: ps) (t: ts) ctors bindMap = do let (pt, newMap) = evalPattern p t ctors
                                                  t' <- pt
-                                                --  traceM("newMap " ++ show newMap)
                                                  if t' == t then matchPatterns ps ts ctors (M.union newMap bindMap) else Nothing
 
 evalPattern :: Pattern -> Type -> M.Map String ([Type], String)-> (Maybe Type, M.Map String Type)
@@ -50,9 +49,6 @@ evalPattern p t ctors = case p of PBoolLit _ -> (Just TBool, M.empty)
 
 evalOneCase :: Type -> Pattern -> Expr -> ContextState Type
 evalOneCase t p e = do oldContext <- get
-                      --  traceM(show t)
-                      --  traceM(show p)
-                      --  traceM(show e)
                        let oldMap = getContext oldContext
                            ctors = getCtors oldContext
                            (pt, bindings) = evalPattern p t ctors
@@ -137,7 +133,6 @@ eval (ELet (n, e1) e2) =  do t1 <- eval e1
                              let oldMap = getContext oldContext
                                  ctors = getCtors oldContext
                                  newContext = Context (M.insert n t1 oldMap) ctors
-                            --  traceM(show newContext)
                              put newContext
                              t2 <- eval e2
                              put oldContext
@@ -164,7 +159,6 @@ eval (EVar n) = do context <- get
 -- paramter type should match argument type
 eval (EApply e1 e2) = do tArrow <- eval e1
                          pt <- eval e2
-                        --  traceM(show tArrow)
                          (case tArrow of TArrow t0 t1 -> if t0 == pt 
                                                                      then return t1 
                                                                      else lift Nothing

@@ -12,13 +12,64 @@ data Value
   | VChar Char
   | VClosure Context String Expr
   | VFun String Context String Expr
-  -- ... more
+  | VAdt String [Value]
+  | VAdtFun String [Value] Int
   deriving (Show, Eq)
 
 data Context = Context { getContext :: M.Map String Value } deriving (Show, Eq)
 
 type ContextState a = StateT Context Maybe a
 
+getCtorValue :: (String, [Type]) -> (String, Value)
+getCtorValue (ctorName, []) = (ctorName, VAdt ctorName [])
+getCtorValue (ctorName, pts) = (ctorName, VAdtFun ctorName [] (length pts))
+
+getADTCtors :: [ADT] -> M.Map String Value
+getADTCtors adts = M.fromList $ Prelude.concatMap (\adt -> case adt of (ADT adtName ctors) -> Prelude.map getCtorValue ctors) adts
+
+matchPatterns :: [Pattern] -> [Value] -> Maybe (M.Map String Value)
+matchPatterns [] [] = Just M.empty
+matchPatterns _ [] = Nothing
+matchPatterns [] _ = Nothing
+matchPatterns [p] [v] = evalPV p v
+                           
+matchPatterns (p: ps) (v: vs) = do let rv = evalPV p v
+                                   case rv of Just bindMap -> do let rv' = matchPatterns ps vs
+                                                                 case rv' of Just bindsMap -> Just $ M.union bindsMap bindMap
+                                                                             Nothing -> Nothing
+                                              Nothing -> Nothing 
+
+evalPV :: Pattern -> Value -> Maybe (M.Map String Value)
+evalPV p v = case p of PBoolLit b -> case v of VBool b' -> if b == b' then Just M.empty else Nothing
+                                               _ -> Nothing
+                       PIntLit i -> case v of VInt i' -> if i == i' then Just M.empty else Nothing
+                                              _ -> Nothing
+                       PCharLit c -> case v of VChar c' -> if c == c' then Just M.empty else Nothing
+                                               _ -> Nothing
+                       PVar x -> Just $ M.fromList [(x, v)]
+                       PData ctorName ps -> case v of VAdt ctorName' vs -> if ctorName == ctorName' then matchPatterns ps vs else Nothing
+                                                      _ -> Nothing
+
+evalCases :: Value -> [(Pattern, Expr)] -> ContextState Value
+evalCases v [(p, e)] = do let rv = evalPV p v
+                          case rv of Just bindings -> do oldContext <- get
+                                                         let oldMap = getContext oldContext
+                                                             newContext = Context $ M.union bindings oldMap
+                                                         put newContext
+                                                         v <- eval e
+                                                         put oldContext
+                                                         return v
+                                     Nothing -> lift Nothing
+evalCases v ((p, e): ps) = do let rv = evalPV p v
+                              case rv of Just bindings -> do oldContext <- get
+                                                             let oldMap = getContext oldContext
+                                                                 newContext = Context $ M.union bindings oldMap
+                                                             put newContext
+                                                             v <- eval e 
+                                                             put oldContext
+                                                             return v
+                                         Nothing -> evalCases v ps
+ 
 eval :: Expr -> ContextState Value
 eval (EBoolLit b) = return $ VBool b
 eval (EIntLit i) = return $ VInt i
@@ -128,17 +179,17 @@ eval (EApply e1 e2) = do f <- eval e1
                                                                    v <- eval body
                                                                    put oldContext
                                                                    return v
+                                     (VAdtFun ctorName vs n) -> if n == 1 then return $ VAdt ctorName $ reverse (v2: vs) else return $ VAdtFun ctorName (v2: vs) (n - 1)
                                      _ -> lift Nothing)
 
-
-
-
--- ... more
-eval _ = undefined
+eval (ECase e0 []) = lift Nothing
+eval (ECase e0 ps) = do v0 <- eval e0
+                        evalCases v0 ps
+                        
 
 evalProgram :: Program -> Maybe Value
 evalProgram (Program adts body) = evalStateT (eval body) $
-  Context (M.empty :: M.Map String Value) 
+  Context $ getADTCtors adts 
 
 
 evalValue :: Program -> Result
