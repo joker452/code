@@ -9,15 +9,16 @@ import Data.Map.Strict as M
 
 
 
-data Context = Context { getContext :: M.Map String Type,
-                         getCtors :: M.Map String ([Type], String) }
+data Context = Context { getTypeMap :: M.Map String Type,
+                         getCtors :: M.Map String ([Type], String)        -- constructor name, parameter types, ADT type name
+                       }
   deriving (Show, Eq)
 
 type ContextState a = StateT Context Maybe a
 
 getCtorType :: String -> (String, [Type]) -> (String, Type)
-getCtorType adtName (ctorName, []) = (ctorName, TData adtName)
-getCtorType adtName ctor = (fst ctor, F.foldr' TArrow (TData adtName) (snd ctor))
+getCtorType typeName (ctorName, []) = (ctorName, TData typeName)
+getCtorType typeName ctor = (fst ctor, F.foldr' TArrow (TData typeName) (snd ctor))
 
 getADTTypes :: [ADT] -> M.Map String Type
 getADTTypes adts = M.fromList $ Prelude.concatMap (\adt -> case adt of (ADT typeName ctors) -> Prelude.map (getCtorType typeName) ctors) adts
@@ -25,17 +26,22 @@ getADTTypes adts = M.fromList $ Prelude.concatMap (\adt -> case adt of (ADT type
 getADTCtors :: [ADT] -> M.Map String ([Type], String)
 getADTCtors adts = M.fromList $ Prelude.concatMap (\adt -> case adt of (ADT typeName ctors) -> Prelude.map (\ctor -> (fst ctor, (snd ctor, typeName))) ctors) adts
 
+-- match patterns to types, given ADT constructors
+-- record new constructed bindings and return it at fianl call
 matchPatterns :: [Pattern] -> [Type] -> M.Map String ([Type], String) -> M.Map String Type -> Maybe (M.Map String Type)
 matchPatterns [] [] _ _ = Just M.empty
 matchPatterns _ [] _ _ = Nothing
 matchPatterns [] _ _ _ = Nothing
-matchPatterns [p] [t] ctors bindMap = do let (pt, newMap) = evalPattern p t ctors
+matchPatterns [p] [t] ctors bindMap = do let (pt, newbindMap) = evalPattern p t ctors
                                          t' <- pt
-                                         if t' == t then Just (M.union newMap bindMap) else Nothing
-matchPatterns (p: ps) (t: ts) ctors bindMap = do let (pt, newMap) = evalPattern p t ctors
+                                         if t' == t then Just (M.union newbindMap bindMap) else Nothing
+matchPatterns (p: ps) (t: ts) ctors bindMap = do let (pt, newbindMap) = evalPattern p t ctors
                                                  t' <- pt
-                                                 if t' == t then matchPatterns ps ts ctors (M.union newMap bindMap) else Nothing
-
+                                                 if t' == t then matchPatterns ps ts ctors (M.union newbindMap bindMap) else Nothing
+-- eval a pattern's type given the type of the expr to match against and ADT constructors
+-- PVar can match every type, and a new binding is constructed
+-- return the pattern's type and all new constructed bindings
+-- if pattern' type if Nothing, it indicates an error
 evalPattern :: Pattern -> Type -> M.Map String ([Type], String)-> (Maybe Type, M.Map String Type)
 evalPattern p t ctors = case p of PBoolLit _ -> (Just TBool, M.empty)
                                   PIntLit _ -> (Just TInt, M.empty)
@@ -47,9 +53,11 @@ evalPattern p t ctors = case p of PBoolLit _ -> (Just TBool, M.empty)
                                                                                                                  Nothing -> (Nothing, M.empty)
                                                                        Nothing -> (Nothing, M.empty)                                                  
 
+-- first eval pattern and get new bindings
+-- then add new bindings to the context and eval the correspondng expr
 evalOneCase :: Type -> Pattern -> Expr -> ContextState Type
 evalOneCase t p e = do oldContext <- get
-                       let oldMap = getContext oldContext
+                       let oldMap = getTypeMap oldContext
                            ctors = getCtors oldContext
                            (pt, bindings) = evalPattern p t ctors
                        case pt of Just t' -> if t == t' then do let newContext = Context (M.union bindings oldMap) ctors  
@@ -58,12 +66,13 @@ evalOneCase t p e = do oldContext <- get
                                                                 put oldContext
                                                                 return rt
                                                         else lift Nothing
-                                  Nothing -> lift Nothing    
+                                  Nothing -> lift Nothing 
+-- eval all cases and check their types are same   
 evalCases :: Type -> [(Pattern, Expr)] -> ContextState Type
 evalCases t [(p, e)] = evalOneCase t p e
-evalCases t ((p, e): ps) = do rt <- evalOneCase t p e
-                              rt' <- evalCases t ps
-                              if rt == rt' then return rt else lift Nothing   
+evalCases t ((p, e): pes) = do rt <- evalOneCase t p e
+                               rt' <- evalCases t pes
+                               if rt == rt' then return rt else lift Nothing   
 
 eval :: Expr -> ContextState Type
 eval (EBoolLit _) = return TBool
@@ -120,7 +129,7 @@ eval (EIf e1 e2 e3) = do t1 <- eval e1
 -- before check the type of function body, 
 -- we need to add the parameter type to the context and restore afterwards                     
 eval (ELambda (pn, pt) e) = do oldContext <- get
-                               let oldMap = getContext oldContext
+                               let oldMap = getTypeMap oldContext
                                    ctors = getCtors oldContext
                                    newContext = Context (M.insert pn pt oldMap) ctors
                                put newContext
@@ -130,7 +139,7 @@ eval (ELambda (pn, pt) e) = do oldContext <- get
 -- same as above, need to add bind type first and restore afterwards                               
 eval (ELet (n, e1) e2) =  do t1 <- eval e1
                              oldContext <- get
-                             let oldMap = getContext oldContext
+                             let oldMap = getTypeMap oldContext
                                  ctors = getCtors oldContext
                                  newContext = Context (M.insert n t1 oldMap) ctors
                              put newContext
@@ -141,7 +150,7 @@ eval (ELet (n, e1) e2) =  do t1 <- eval e1
 -- we need to add the declared function type before actually check the type
 -- the actual type should match the declared one                              
 eval (ELetRec f (x, tx) (e1, ty) e2) = do oldContext <- get
-                                          let oldMap = getContext oldContext
+                                          let oldMap = getTypeMap oldContext
                                               ctors = getCtors oldContext
                                               newContext = Context (M.insert f (TArrow tx ty) oldMap) ctors
                                           put newContext
@@ -153,7 +162,7 @@ eval (ELetRec f (x, tx) (e1, ty) e2) = do oldContext <- get
                                                                                   lift Nothing
                                                                          
 eval (EVar n) = do context <- get
-                   let oldMap = getContext context 
+                   let oldMap = getTypeMap context 
                        t = M.lookup n oldMap
                    lift t
 -- paramter type should match argument type
