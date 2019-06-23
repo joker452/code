@@ -35,7 +35,7 @@ testTasks :: [TestTree]
 testTasks =
     [ mkTestSuite "simple"  simple
      ,mkTestSuite "complex" complex
-    -- , mkTestSuite "adt"     adt
+    , mkTestSuite "adt"     adt
     ]
 
 main :: IO ()
