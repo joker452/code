@@ -1,3 +1,4 @@
+
 (* Dan Grossman, Coursera PL, HW2 Provided Code *)
 
 (* if you use this function to compare two strings (returns true if the same
@@ -110,4 +111,70 @@ fun officiate(cards, moves, goal) =
 					 then score(c:: held_cards, goal)
 					 else runner(cs, ms, goal, c:: held_cards)
     in runner(cards, moves, goal, [])
+    end
+
+fun replace_one_ace(cs) =
+  case cs of
+      [] => []
+    | (c, Ace)::xs' => (c,Num(1))::xs'
+    | card::xs' => card::replace_one_ace(xs')
+
+fun replace_one_ace_move(cs) =
+  case cs of
+      [] => []
+    | Discard(c, Ace)::xs' => Discard(c,Num(1))::xs'
+    | card::xs' => card::replace_one_ace_move(xs')					
+
+fun least_of(ls) =
+  case ls of
+      [] => 0
+    | x::[] => x
+    | x::xs' => let val min = least_of(xs')
+		in if min < x
+		   then min
+		   else x
+		end;
+				     
+fun score_challenge(cs,g) =
+  let fun container(cs) =
+	let val replaced = replace_one_ace(cs)
+	in if cs = replaced
+	   then [score(cs,g)]
+	   else score(cs,g)::container(replaced)
+	end
+  in least_of(container(cs))
+  end;
+
+fun officiate_challenge(cds,moves,i) =
+  let fun container(cs, moves) =
+	let val replaced = replace_one_ace(cs)
+	    val repl_moves = replace_one_ace_move(moves)
+	in if cs = replaced
+	   then [officiate(cs,moves,i)]
+	   else officiate(cs,moves,i)::container(replaced, repl_moves)
+	end
+   in least_of(container(cds, moves))
+  end;
+
+fun discard_and_draw(held_cards, goal, held_cards_head,  move) =
+    case held_cards of
+	[] => move
+      | c::cs => if score(held_cards_head @ cs, goal) = 0
+		 then Discard c
+		 else discard_and_draw(cs, goal, c::held_cards_head, move)
+				      
+fun careful_player(cards, goal) =
+    let fun play_helper(cards, goal, held_cards, moves) =
+	    if goal - sum_cards(held_cards) > 10
+	    then case cards of
+		     [] => rev (Draw:: moves)
+		   | c::cs => play_helper(cs, goal, c::held_cards, Draw::moves)
+	    else if score(held_cards, goal) = 0
+	         then moves
+	         else case cards of
+			  [] => rev moves
+			| c::cs => case discard_and_draw(held_cards, goal, [c], Draw) of
+				       Discard c' => rev (Draw::Discard c'::moves)
+			             | Draw => rev moves
+    in play_helper(cards, goal,  [], [])
     end
