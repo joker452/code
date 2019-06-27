@@ -3,7 +3,6 @@ module EvalValue where
 
 import AST
 import Data.Map.Strict as M
-import Debug.Trace
 import Control.Monad.State
 
 data Value
