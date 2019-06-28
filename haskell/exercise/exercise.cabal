@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.31.0.
+-- This file has been generated from package.yaml by hpack version 0.31.1.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ea7f232ae8ab6f905b5b3374088626765310db95f26344440df7ef7fefa4a9bd
+-- hash: 6090defe78d4c14ad4a05ea388050e3c9735c3ed9115432972af6a6da2936e40
 
 name:           exercise
 version:        0.1.0.0
@@ -27,8 +27,10 @@ source-repository head
 
 library
   exposed-modules:
+      Compose
       Moi
       Reader
+      Transformers
       W1
       W2
       W3

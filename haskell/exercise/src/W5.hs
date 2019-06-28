@@ -28,10 +28,10 @@ import Data.List
 -- True *! 3 ==> [True,True,True]
 
 (%$) :: String -> String -> String
-x %$ y = undefined
+x %$ y = x ++ y ++ x
 
 (*!) :: Int -> a -> [a]
-n *! val = undefined
+n *! val = replicate n val
 
 -- Ex 2: implement the function allEqual which returns True if all
 -- values in the list are equal.
@@ -46,7 +46,11 @@ n *! val = undefined
 -- you remove the Eq a => constraint from the type!
 
 allEqual :: Eq a => [a] -> Bool
-allEqual xs = undefined
+allEqual [] = True 
+allEqual (x1:xs) = equalHelper xs x1
+                where equalHelper [] x = True
+                      equalHelper [x'] x = x' == x
+                      equalHelper (x':xs') x = if x' == x then equalHelper xs' x else False 
 
 -- Ex 3: implement the function secondSmallest that returns the second
 -- smallest value in the list, or Nothing if there is no such value.
@@ -58,7 +62,19 @@ allEqual xs = undefined
 -- secondSmallest [5,3,7,2,3,1]  ==>  Just 2
 
 secondSmallest :: Ord a => [a] -> Maybe a
-secondSmallest xs = undefined
+secondSmallest [] = Nothing
+secondSmallest [x] = Nothing
+secondSmallest [x1, x2] = if x1 < x2 then Just x2 else Just x1
+secondSmallest (x:xs) = let helper [x1, x2] = if x1 < x2 then (x1, x2) else (x2, x1)
+                            helper (x:xs) = let (x1, x2) = helper xs 
+                                            in if x < x1 
+                                               then (x, x1)
+                                               else if x > x2
+                                                    then (x1, x2)
+                                                    else (x1, x)
+                            (x1, x2) = helper xs
+                        in if x < x1 then Just x1 else if x > x2 then Just x2 else Just x  
+                               
 
 -- Ex 4: find how two lists differ from each other. If they have
 -- different lengths, return
@@ -77,8 +93,14 @@ secondSmallest xs = undefined
 --    ==> Just "False /= True"
 --  findDifference [0,0,0] [0,0,0,0]
 --    ==> Just "3 /= 4"
-
-findDifference = undefined
+findDifference :: (Eq a, Show a) => [a] -> [a] -> Maybe String
+findDifference xs ys = let lx = length xs
+                           ly = length ys
+                           findHelper [] [] = Nothing
+                           findHelper (x:xs) (y:ys) = if x == y 
+                                                      then findHelper xs ys
+                                                      else Just $ show x ++ " /= " ++ show y
+                       in if lx /= ly then Just $ show lx ++ " /= " ++ show ly else findHelper xs ys   
 
 -- Ex 5: compute the average of a list of values of the Fractional
 -- class.
@@ -90,7 +112,7 @@ findDifference = undefined
 -- length to a Fractional
 
 average :: Fractional a => [a] -> a
-average xs = undefined
+average xs = sum xs / (fromIntegral $ length xs)
 
 -- Ex 6: define an Eq instance for the type Foo below.
 
@@ -98,15 +120,23 @@ data Foo = Bar | Quux | Xyzzy
   deriving Show
 
 instance Eq Foo where
-  (==) = error "implement me"
+  x == y = case (x, y) of 
+              (Bar, Bar) -> True
+              (Quux, Quux) -> True 
+              (Xyzzy, Xyzzy) -> True
+              _ -> False
 
 -- Ex 7: implement an Ord instance for Foo so that Quux < Bar < Xyzzy
 
 instance Ord Foo where
-  compare = error "implement me?"
-  (<=) = error "and me?"
-  min = error "and me?"
-  max = error "and me?"
+  compare x y = if x == y then EQ else if x <= y then LT else GT
+  x <= y = case (x, y) of
+                (Xyzzy, Bar) -> False
+                (Xyzzy, Quux) -> False 
+                (Bar, Quux) -> False
+                _ -> True  
+  min x y = if x <= y then x else y 
+  max x y = if x <= y then y else x
 
 -- Ex 8: here is a type for a 3d vector. Implement an Eq instance for it.
 
@@ -114,7 +144,9 @@ data Vector = Vector Integer Integer Integer
   deriving Show
 
 instance Eq Vector where
-  (==) = error "implement me"
+  x == y = case (x, y) of
+             (Vector x1 y1 z1, Vector x2 y2 z2) -> x1 == x2 && y1 == y2 && z1 == z2
+
 
 -- Ex 9: implementa Num instance for Vector such that all the
 -- arithmetic operations work componentwise.
@@ -129,6 +161,12 @@ instance Eq Vector where
 -- signum (Vector (-1) 2 (-3)) ==> Vector (-1) 1 (-1)
 
 instance Num Vector where
+  (Vector x1 y1 z1) + (Vector x2 y2 z2) = Vector (x1 + x2) (y1 + y2) (z1 + z2)
+  (Vector x1 y1 z1) - (Vector x2 y2 z2) = Vector (x1 - x2) (y1 - y2) (z1 - z2)
+  (Vector x1 y1 z1) * (Vector x2 y2 z2) = Vector (x1 * x2) (y1 * y2) (z1 * z2)
+  abs (Vector x y z) = Vector (abs x) (abs y) (abs z)
+  signum (Vector x y z) = Vector (signum x) (signum y) (signum z)
+  fromInteger x = Vector x x x
 
 -- Ex 10: compute how many times each value in the list occurs. Return
 -- the frequencies as a list of (frequency,value) pairs.
@@ -140,7 +178,10 @@ instance Num Vector where
 --   ==> [(3,False),(1,True)]
 
 freqs :: Eq a => [a] -> [(Int,a)]
-freqs xs = undefined
+freqs [] = []
+freqs (x:xs) = let (xx, left) = partition (== x) xs
+                   freq = length xx + 1
+               in (freq, x): freqs left
 
 -- Ex 11: implement an Eq instance for the following binary tree type
 
