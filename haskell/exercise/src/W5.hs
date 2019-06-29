@@ -189,7 +189,10 @@ data ITree = ILeaf | INode Int ITree ITree
   deriving Show
 
 instance Eq ITree where
-  (==) = error "implement me"
+  x == y = case (x, y) of 
+              (ILeaf, ILeaf) -> True
+              (INode i1 l1 r1, INode i2 l2 r2) -> if i1 == i2 then l1 == l2 && r1 == r2 else False
+              _ -> False  
 
 -- Ex 12: here is a list type parameterized over the type it contains.
 -- Implement an instance "Eq a => Eq (List a)" that compares elements
@@ -199,7 +202,10 @@ data List a = Empty | LNode a (List a)
   deriving Show
 
 instance Eq a => Eq (List a) where
-  (==) = error "implement me"
+  x == y = case (x, y) of 
+            (Empty, Empty) -> True
+            (LNode a1 l1, LNode a2 l2) -> if a1 == a2 then l1 == l2 else False
+            _ -> False
 
 -- Ex 13: start by reading a bit about Functors. A Functor is a thing
 -- you can "map" over, e.g. lists, Maybes.
@@ -212,7 +218,7 @@ instance Eq a => Eq (List a) where
 --   incrementAll (Just 3.0)  ==>  Just 4.0
 
 incrementAll :: (Functor f, Num n) => f n -> f n
-incrementAll x = undefined
+incrementAll = fmap (+1) 
 
 -- Ex 14: below you'll find a type Result that works a bit like Maybe,
 -- but there are two different types of "Nothings": one with and one
@@ -224,13 +230,17 @@ data Result a = MkResult a | NoResult | Failure String
   deriving (Show,Eq)
 
 instance Functor Result where
-  fmap f result = error "implement me"
+  fmap f result = case result of 
+                    MkResult a -> MkResult $ f a
+                    NoResult -> NoResult
+                    Failure s -> Failure s
 
 -- Ex 15: Implement the instance Functor List (for the datatype List
 -- from ex 12)
 
 instance Functor List where
-
+  fmap f Empty = Empty
+  fmap f (LNode a l) = LNode (f a) (fmap f l)
 -- Ex 16: Fun a is a type that wraps a function Int -> a. Implement a
 -- Functor instance for it.
 --
@@ -240,9 +250,10 @@ instance Functor List where
 data Fun a = Fun (Int -> a)
 
 runFun :: Fun a -> Int -> a
-runFun (Fun f) x = f x
+runFun (Fun f) = f
 
 instance Functor Fun where
+  fmap f fun = Fun $ f . (runFun fun) 
 
 -- Ex 17: this and the next exercise serve as an introduction for the
 -- next week.
@@ -273,7 +284,10 @@ instance Functor Fun where
 --  (True,True,False)
 
 threeRandom :: (Random a, RandomGen g) => g -> (a,a,a)
-threeRandom g = undefined
+threeRandom g = let (a1, g1) = random g
+                    (a2, g2) = random g1
+                    (a3, g3) = random g2
+                in (a1, a2, a3)
 
 -- Ex 18: given a Tree (same type as on Week 3), randomize the
 -- contents of the tree.
@@ -297,4 +311,8 @@ data Tree a = Leaf | Node a (Tree a) (Tree a)
   deriving Show
 
 randomizeTree :: (Random a, RandomGen g) => Tree b -> g -> (Tree a,g)
-randomizeTree t g = undefined
+randomizeTree Leaf g = (Leaf, g)
+randomizeTree (Node a l r) g = let (a1, g1) = random g
+                                   (l', g2) = randomizeTree l g1
+                                   (r', g3) = randomizeTree r g2
+                               in (Node a1 l' r', g3)  
