@@ -84,8 +84,35 @@ exception Foo
 fun f5 x = if x > 3 then x else raise Foo
 fun f6 y = (f5 (y + 1)) handle _ => false -> this handle expr should have type int
 *)
+
+(* 'a * 'b -> 'c) -> 'a list -> 'b list -> 'c list *)
+									      fun zipWith f xs ys =
+										  case (xs, ys) of
+										      ([], _) => []
+										    | (_, []) => []
+										    | (x::xs', y::ys') => f((x, y)):: zipWith f xs' ys'
+
+									      val first_bigger = zipWith (fn (x, y) => x > y)
+
+									      fun zipWith' f xs ys =
+										  List.map f (ListPair.zip (xs, ys))
+
+											   (*
+(d) 3
+(e) 6 											   
+											    *)
 			      
-										      
-    
+											    fun flat_map f xs =
+												case xs of
+												    [] => []
+												  | x::xs' => (f x) @ flat_map f xs'
+
+											    fun map f xs =
+												flat_map (fn x => [f x]) xs
+													 
+											    fun filter f xs =
+												flat_map (fn x => if f x then [x] else []) xs
+
+													 
 										  
     
