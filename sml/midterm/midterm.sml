@@ -40,7 +40,7 @@ fun f (xs, ys) =
 (d) What does f([3, 4, 5], [10, 11, 12]) evaluate to?
     SOME 17
 (e) What does f([3, 4, 5, 6], [10, 11, 12, 13]) evaluate to?
-    SOME 35
+    SOME 35  (* SOME 36 *)
 (f) Describe in at most 1 English sentence all the inputs to f such that the result of f is NONE.
     an tuple of int lists that have different length
 (g) Yes or no: Is f tail-recursive?
@@ -50,9 +50,9 @@ fun f (xs, ys) =
 (i) What happens if we move branch 3 of f to be the first pattern in the case expression?
     C
 (j) What happens if we move branch 4 of f to be the first pattern in the case expression?
-    B
+    B  (* A, redundant branch is not allowed *)
 (k) What happens if we move branch 5 of f to be the first pattern in the case expression?
-    B
+    B  (* A, redundant branch is not allowed *)
 *)
 
 (*
@@ -86,32 +86,32 @@ fun f6 y = (f5 (y + 1)) handle _ => false -> this handle expr should have type i
 *)
 
 (* 'a * 'b -> 'c) -> 'a list -> 'b list -> 'c list *)
-									      fun zipWith f xs ys =
-										  case (xs, ys) of
-										      ([], _) => []
-										    | (_, []) => []
-										    | (x::xs', y::ys') => f((x, y)):: zipWith f xs' ys'
+fun zipWith f xs ys =
+    case (xs, ys) of
+			([], _) => []
+		  | (_, []) => []
+	      | (x::xs', y::ys') => f((x, y)):: zipWith f xs' ys'
 
-									      val first_bigger = zipWith (fn (x, y) => x > y)
+val first_bigger = zipWith (fn (x, y) => x > y)
 
-									      fun zipWith' f xs ys =
-										  List.map f (ListPair.zip (xs, ys))
+fun zipWith' f xs ys =
+    List.map f (ListPair.zip (xs, ys))
 
-											   (*
+(*
 (d) 3
 (e) 6 											   
-											    *)
+*)
 			      
-											    fun flat_map f xs =
-												case xs of
-												    [] => []
-												  | x::xs' => (f x) @ flat_map f xs'
+fun flat_map f xs =
+    case xs of
+	    [] => []
+	  | x::xs' => (f x) @ flat_map f xs'
 
-											    fun map f xs =
-												flat_map (fn x => [f x]) xs
+fun map f xs =
+    flat_map (fn x => [f x]) xs
 													 
-											    fun filter f xs =
-												flat_map (fn x => if f x then [x] else []) xs
+fun filter f xs =
+    flat_map (fn x => if f x then [x] else []) xs
 
 													 
 										  

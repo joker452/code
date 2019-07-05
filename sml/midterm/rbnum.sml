@@ -27,4 +27,7 @@ fun is_max_blue x = x = 1999
 (* int -> int *)
 fun to_int x = if x > 999 then x - 1000 else x
 end
-    (* (d) none of the function can be implemented equivalently outside the module by the client *)
+(* (d) none of the function can be implemented equivalently outside the module by the client
+(* is_max_blue can be implemented as
+   fun is_max_blue x = if is_blue x andalso (to_int x) = max_value *)
+*)
