@@ -77,6 +77,7 @@ module W6 where
   split :: String -> Maybe (String,String)
   split s = let (for, sur) = splitHelper s ""
             in if for /= "" && sur /= "" then Just (for, sur) else Nothing
+            
   
   -- checkNumber should take a pair of two strings and return then
   -- unchanged if they don't contain numbers. Otherwise Nothing is
@@ -258,9 +259,9 @@ module W6 where
   -- PS. Order of the list of pairs doesn't matter
   
   count :: Eq a => a -> State [(a, Int)] ()
-  count x = state $ \s -> if any (\p -> fst p == x) s
-                          then ((), map (\p -> if fst p == x then (x, snd p + 1) else p) s)
-                          else ((), (x, 1):s)
+  count x = modify (inc x)
+             where inc x [] = [(x, 1)]
+                   inc x ((x', c):xs) = if x == x' then (x, c + 1):xs else (x', c): (inc x xs)
   
   -- Ex 8: given a list of values, replace each value by a number saying
   -- which occurrence of the value this was in the list.
@@ -401,20 +402,11 @@ module W6 where
   
   routeExists :: [[Int]] -> Int -> Int -> Bool
   routeExists cities i j = j `elem` execState (dfs cities i) []
-  dfsHelper :: [[Int]] -> [Int] -> State [Int] ()
-  dfsHelper cities [] = return ()
-  dfsHelper cities (x:xs) = do s <- get
-                               if x `elem` s 
-                               then dfsHelper cities xs 
-                               else do put (x: s)
-                                       dfsHelper cities (cities !! x)
-                                       dfsHelper cities xs 
   dfs :: [[Int]] -> Int -> State [Int] ()
-  dfs cities i = do s <- get
-                    if i `elem` s 
-                    then dfsHelper cities (cities !! i)
-                    else do put (i:s)
-                            dfsHelper cities (cities !! i)
+  dfs cities i = do visited <- get
+                    when (not $ elem i visited) $ do modify (i:)
+                                                     let neighbors = cities !! i
+                                                     mapM_ (dfs cities) neighbors
                                                                
                     
   
@@ -455,9 +447,9 @@ module W6 where
   
   sums :: [Int] -> [Int]
   sums [] = [0]
-  sums (x:xs) = let l = sums xs
-                    l' = map (+ x) l 
-                in union l l' 
+  sums (x:xs) = let xs' = sums xs
+                in map (+ x) xs' ++ xs'
+                   
   -- Ex 14: the standard library defines the function
   --
   --   foldM :: (Monad m) => (a -> b -> m a) -> a -> [b] -> m a
