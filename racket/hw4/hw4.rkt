@@ -12,12 +12,11 @@
   )
 
 (define (list-nth-mod xs n)
-  (if (< n 0)
-      (error "list-nth-mod: negative number")
-      (if (null? xs)
-          (error "list-nth-mod: empty list")
-          (car (list-tail xs (remainder n (length xs))))))
-      )
+  (cond [(< n 0) (error "list-nth-mod: negative number")]
+        [(null? xs) (error "list-nth-mod: empty list")]
+        [#t (car (list-tail xs (remainder n (length xs))))]
+        )
+  )
   
 
 (define (stream-for-n-steps s n)
@@ -70,11 +69,8 @@
                      (if (>= n (vector-length vec))
                          #f
                          (let ([x (vector-ref vec n)])
-                           (if (pair? x)
-                               (if (equal? (car x) v)
-                                   x
-                                   (helper (+ n 1))
-                                   )
+                           (if (and (pair? x) (equal? (car x) v))
+                               x
                                (helper (+ n 1))
                                )
                            )
@@ -112,4 +108,18 @@
     f
     )
   )
-                           
+
+(define-syntax while-less
+  (syntax-rules ()
+    [(while-less e1 do e2)
+     (letrec ([bound e1]
+            [f (lambda () (let ([x e2])
+                            (if (>= x bound)
+                                #t
+                                (f))
+                            )
+                 )])
+       (f))]
+    )
+  )
+                       
