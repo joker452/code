@@ -15,3 +15,5 @@ python/charcnn/output/
 wireshark/**/*.swp
 *.sml#
 *~
+racket/**/*.bak
+compiled/
