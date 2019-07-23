@@ -17,3 +17,4 @@ wireshark/**/*.swp
 *~
 racket/**/*.bak
 compiled/
+ruby/**/*.#rb
