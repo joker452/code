@@ -189,6 +189,7 @@
                                    free
                                    (set-add! free (var-string e)))]
                      [(int? e) free]
+                     [(closure? e) free]
                      [(add? e) (begin (f bound (add-e1 e) free)
                                       (f bound (add-e2 e) free))]
                      [(ifgreater? e) (begin (f bound (ifgreater-e1 e) free)
