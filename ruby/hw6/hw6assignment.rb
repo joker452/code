@@ -15,10 +15,11 @@ class MyPiece < Piece
     rotations([[0, 0], [-1, 0], [0, -1], [1, -1]]), # S
     rotations([[0, 0], [1, 0], [0, -1], [-1, -1]]), # Z
     rotations([[0, 0], [1, 0], [2, 0], [0, -1], [1, -1]]),
-    rotations([[-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0]]),
+    [[[-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0]],
+     [[0, -2], [0, -1], [0, 0], [0, 1], [0, 2]]],
     rotations([[0, 0], [0, -1], [1, 0]])
   ]
-
+  
   def self.next_piece(board)
     MyPiece.new(All_My_Pieces.sample, board)
   end
@@ -52,10 +53,12 @@ class MyBoard < Board
   end
 
   def store_current
+    # need to change this because the new added pieces
+    # including the cheat piece don't necessarily have
+    # four rows
     locations = @current_block.current_rotation
     displacement = @current_block.position
-    size = locations.size
-    (0..size - 1).each{|index| 
+    (0..(locations.size - 1)).each{|index| 
       current = locations[index];
       @grid[current[1]+displacement[1]][current[0]+displacement[0]] = 
         @current_pos[index]
