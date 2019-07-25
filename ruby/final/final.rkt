@@ -103,7 +103,7 @@
   )
 
 (define (m varnew varold body)
-  (mlet (var varnew) (var varold) body)
+  (mlet (var varnew) (var varold) body)  ; should be (mlet varnew (var varold) body) because needs a string rather than a MUPL expr
   )
 
 ;4. (e) mlet can only add local bindings, it can't delete bindings already existed
@@ -113,10 +113,10 @@
 ; (b) B
 ; (c) A
 ; (d) C
-; (e) B
+; (e) B -> C
 
 ;6.
-; (a) impossible
+; (a) impossible -> possible
 ; (b) possible
 ; (c) impossible
 ; (d) possible
